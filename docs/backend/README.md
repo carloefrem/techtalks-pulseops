@@ -3,7 +3,7 @@
 **Status:** Plan, waiting for Majd's review. No backend code exists yet.
 **Author:** Mirla · **Reviewer:** Majd
 **Parent:** PULSE-28 (S1-09 Express backend foundation)
-**Follows:** the stack in the root [README](../../README.md) (Node 24.22.3, Express 5, TypeScript, Zod, CORS, dotenv, Prisma, PostgreSQL 17, Vitest), and the database design in PULSE-25 (`docs/database/`).
+**Follows:** the stack in the root [README](../../README.md) (Node 24.22.3, Express 5, TypeScript, Zod, CORS, dotenv, Prisma, PostgreSQL 18.7, Vitest), and the database design in PULSE-25 (`docs/database/`).
 
 ---
 
@@ -87,7 +87,7 @@ PORT=3001
 # Frontend allowed by CORS (Vite dev server)
 FRONTEND_ORIGIN="http://localhost:5173"
 
-# Local PostgreSQL 17. Copy this file to .env and fill in YOUR user/password.
+# Local PostgreSQL 18.7. Copy this file to .env and fill in YOUR user/password.
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/pulseops_dev"
 ```
 
@@ -107,7 +107,7 @@ Added later, when their features arrive: `JWT_SECRET` (authentication), plus the
 
 ## 4. PostgreSQL setup (each developer, locally)
 
-1. Install PostgreSQL 17 and pgAdmin 4 (see the root README).
+1. Install PostgreSQL 18.7 and pgAdmin 4 (see the root README).
 2. In pgAdmin, create two databases:
    - `pulseops_dev`, used for running the app
    - `pulseops_test`, used by the tests, so they never touch your dev data
