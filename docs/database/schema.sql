@@ -1,5 +1,5 @@
 -- PulseOps: proposed PostgreSQL schema (PULSE-25, draft for review)
--- Target: PostgreSQL 17 (works on 14+). Needs no extensions.
+-- Target: PostgreSQL 18.7 (team baseline; also works on 14+). Needs no extensions.
 -- This is the design reference. The backend's versioned migration (PULSE-69)
 -- implements it once Carlo reviews and approves it.
 
