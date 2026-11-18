@@ -57,7 +57,7 @@ All developers should use Windows 10/11 and the following baseline.
 | Node.js | 24.22.3 | https://nodejs.org/dist/v24.22.3/ |
 | npm | 11.19.1 | Included with Node.js; update if needed |
 | Git | Team-agreed stable version | https://git-scm.com/install/windows |
-| PostgreSQL | 17.x, same patch release | https://www.postgresql.org/download/windows/ |
+| PostgreSQL | 18.7 (team decision, same version for everyone) | https://www.postgresql.org/download/windows/ |
 | pgAdmin 4 | Compatible version | https://www.pgadmin.org/download/ |
 | Bruno | Latest stable | https://www.usebruno.com/downloads |
 | Chrome / Edge | Latest stable | Browser |
@@ -147,7 +147,7 @@ Optional:
 - dotenv
 
 ### Database
-- PostgreSQL 17
+- PostgreSQL 18.7
 - Prisma ORM
 
 ### Testing
@@ -257,7 +257,7 @@ Do not run these commands until the frontend and backend folders exist.
 
 ## 11. PostgreSQL Setup
 
-1. Install PostgreSQL 17.
+1. Install PostgreSQL 18.7.
 2. Install or open pgAdmin 4.
 3. Connect to the local PostgreSQL server.
 4. Create a database named `pulseops_dev`.
@@ -307,7 +307,7 @@ Everyone must contribute to multiple areas of the application, including fronten
 - [ ] Node.js 24.22.3 verified
 - [ ] npm 11.19.1 verified
 - [ ] Git installed and configured
-- [ ] PostgreSQL 17 installed
+- [ ] PostgreSQL 18.7 installed
 - [ ] pgAdmin working
 - [ ] Bruno installed
 - [ ] GitHub repository access confirmed
