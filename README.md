@@ -8,6 +8,25 @@ API Uptime Monitoring & Incident Tracking Platform
 **Team:** Carlo, Gaelle, Mirla, Majd  
 **Status:** Initial setup and planning
 
+## Contents
+
+1. [Project Overview](#1-project-overview)
+2. [Project Links](#2-project-links)
+3. [Required Software](#3-required-software)
+4. [Verify Installed Software](#4-verify-installed-software)
+5. [VS Code Extensions](#5-vs-code-extensions)
+6. [Planned Technology Stack](#6-planned-technology-stack)
+7. [Repository Structure](#7-repository-structure)
+8. [Initialize the Frontend](#8-initialize-the-frontend)
+9. [Initialize the Backend](#9-initialize-the-backend)
+10. [Install Dependencies on Other Computers](#10-install-dependencies-on-other-computers)
+11. [PostgreSQL Setup](#11-postgresql-setup)
+12. [Environment Variables](#12-environment-variables)
+13. [GitHub Workflow](#13-github-workflow)
+14. [Setup Checklist](#14-setup-checklist)
+15. [Project Security](#15-project-security)
+16. [Documentation](#16-documentation)
+
 ## 1. Project Overview
 
 PulseOps is a web application designed to help developers monitor HTTP APIs, track response times, detect failures, and view incidents through a dashboard.
@@ -141,18 +160,31 @@ Exact npm package versions will be committed in package-lock.json after initiali
 
 Do not install React, Express, Prisma, or TypeScript globally.
 
-## 7. Planned Repository Structure
+## 7. Repository Structure
 
 ```text
 techtalks-pulseops/
-├── frontend/
-├── backend/
-├── docs/
-├── .github/
-├── .nvmrc
+├── frontend/      # React app
+├── backend/       # Express API, Prisma schema and migrations
+├── docs/          # Technical design documents
+├── .github/       # PR template and CI workflows
+├── .nvmrc         # Node.js version
 ├── .gitignore
 └── README.md
 ```
+
+| Path | Status | Owner task | Notes |
+|---|---|---|---|
+| `README.md` | Exists | PULSE-22 / PULSE-50 | Overview and setup guide |
+| `.gitignore` | Exists | PULSE-22 | Excludes `.env*` (except `.env.example`), `node_modules/` and `dist/` |
+| `docs/database/` | In review (PR pending) | PULSE-25 | Database design: ERD, tables, indexes, `schema.sql` |
+| `docs/backend/` | In review (PR pending) | PULSE-67 | Backend folder structure, scripts and env plan |
+| `frontend/` | Planned | PULSE-27 | Created by the frontend setup (section 8) |
+| `backend/` | Planned | PULSE-28 | Created only after implementation is authorized (section 9) |
+| `.github/` | Planned | PULSE-22 | PR template and CI, if adopted |
+| `.nvmrc` | Planned | PULSE-22 | See below |
+
+Update the **Status** column in the same PR that adds or removes a folder.
 
 The .nvmrc file should contain:
 
@@ -303,3 +335,15 @@ Product requirements and technical decisions are maintained in the shared Notion
 Jira is the source of truth for assigned tasks, sprint progress, and acceptance criteria.
 
 GitHub is the source of truth for code, reviews, and versioned technical configuration.
+
+### Technical documents in this repository
+
+| Document | Jira | Status |
+|---|---|---|
+| [Database design](docs/database/README.md) | PULSE-25 | In review |
+| [Backend structure and configuration plan](docs/backend/README.md) | PULSE-67 | In review |
+| PRD and MVP scope | PULSE-19 | Notion (link to be added) |
+| System architecture (TDD) | PULSE-24 | Notion (link to be added) |
+| REST API contract | PULSE-26 | To be added |
+
+The links above work once their pull requests are merged into `main`.
