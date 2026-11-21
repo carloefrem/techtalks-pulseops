@@ -520,7 +520,7 @@ components:
 
   responses:
     ValidationError:
-      description: Invalid body, query or path (VALIDATION_ERROR)
+      description: Invalid body or query (VALIDATION_ERROR). A malformed ID returns 404 NOT_FOUND instead.
       content:
         application/json:
           schema:
@@ -590,7 +590,7 @@ components:
               message: Please sign in
               details: []
     NotFound:
-      description: Doesn't exist, or belongs to another user (NOT_FOUND)
+      description: Doesn't exist, belongs to another user, or the ID is malformed (NOT_FOUND)
       content:
         application/json:
           schema:

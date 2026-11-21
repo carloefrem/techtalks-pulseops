@@ -53,11 +53,11 @@ Every error uses the single shape from PR #2:
 
 | Status | `code` | When |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | Body, query or path parameter fails Zod validation |
+| 400 | `VALIDATION_ERROR` | Body or query parameter fails Zod validation. A malformed ID (`{id}` or `monitorId`) returns `404 NOT_FOUND` instead (section 6.5) |
 | 400 | `UNSAFE_URL` | The URL points to a private, internal or otherwise blocked address (BR-02) |
 | 401 | `UNAUTHENTICATED` | No valid session on a protected route |
 | 401 | `INVALID_CREDENTIALS` | Wrong email or password on login. The same message for both, so it doesn't reveal which one was wrong |
-| 404 | `NOT_FOUND` | The resource doesn't exist **or belongs to another user** (ownership rule, section 4) |
+| 404 | `NOT_FOUND` | The resource doesn't exist, **belongs to another user** (ownership rule, section 4), or the ID is malformed (section 6.5) |
 | 404 | `ROUTE_NOT_FOUND` | Unknown route (`notFound.ts` in PR #2) |
 | 409 | `EMAIL_TAKEN` | Register with an email that already exists (case-insensitive) |
 | 409 | `DUPLICATE_MONITOR_NAME` | The user already has a monitor with this name |
