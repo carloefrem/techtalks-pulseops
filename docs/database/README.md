@@ -1,14 +1,29 @@
 # PulseOps database design (PULSE-25)
 
-**Status:** Draft, waiting for Carlo's review
-**Author:** Mirla · **Reviewer:** Carlo
-**Covers:** PULSE-56 (ERD), PULSE-57 (fields, keys, constraints), PULSE-58 (indexes, retention, incident rules)
-**SQL:** [`schema.sql`](schema.sql). It runs cleanly on an empty PostgreSQL database.
+**Status:** Revision 2, draft for review. This is not approved, and it does not authorize implementation.
+**Author:** Mirla · **Reviewer:** Carlo (PULSE-59)
+**Covers:** PULSE-56 (ERD), PULSE-57 (fields, keys, constraints), PULSE-58 (indexes, history, incident rules)
+**Product source:** PRD v1.1, draft dated 19 Nov 2026 (Notion: https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128), requirements R1–R5 and rules BR-01 to BR-05
+**Files:**
+- [`schema.sql`](schema.sql) creates the tables.
+- [`verify.sql`](verify.sql) runs positive and negative checks against them (section 9).
 
-> The PRD (PULSE-19) and REST API contract (PULSE-26) are not final yet. This design assumes the MVP is:
-> a user signs in, adds HTTP(S) URLs to monitor, a worker checks them on a schedule,
-> and the dashboard shows status, response times, uptime and incidents.
-> Items marked **[Assumption]** or listed under *Open questions* must be confirmed against the PRD and API.
+Anything marked **PROPOSAL** is a product decision that the PRD's *Decisions needed before approval* table has not settled yet (section 8). The schema supports it, but the team still has to agree on it.
+
+## 0. What changed since revision 1 (response to the PR #1 review)
+
+| # | Review point | Change |
+|---|---|---|
+| P1 | BR-04/R5: a successful check must not close an incident | Incidents now have their own `status` (`open` / `resolved`). A successful check only records `recovered_at` (recovery evidence). Only the owner's resolve action sets `resolved`, and the database rejects it unless recovery evidence exists |
+| P2 | R5: severity, status and notes | Added `incidents.status`, `incidents.severity` (**PROPOSAL**: values and rule) and a new `incident_notes` table |
+| P3 | R2: reject duplicate URLs per user | Added `monitors.url_normalized`, unique per user. The database enforces it, so it also holds under concurrency. Equivalence rules are a **PROPOSAL** (section 3.3) |
+| P4 | Accounts and notifications are already decided | Removed both open questions. Personal accounts are in (R1); notifications are out of scope (PRD 5.2) |
+| P5 | 30-day retention is not a product rule | No automatic deletion in the MVP. Retention stays a **PROPOSAL** that needs team agreement (section 3.5) |
+| P6 | Response time when there is no HTTP response | `duration_ms` (elapsed attempt) is always stored. `http_status` and `response_time_ms` are stored only when a response arrived, and a CHECK forbids a made-up latency. The PRD's acceptance wording is still open (section 3.4) |
+| T1 | An incident could reference another monitor's check | Composite FK `(monitor_id, first_check_id) → check_results(monitor_id, id)` with `ON DELETE SET NULL (first_check_id)`. Negative cases are in `verify.sql` |
+| T2 | Concurrent and stale check completions | A per-monitor row lock is taken on completion, and only results newer than `last_checked_at` are applied. Scheduled claims use `FOR UPDATE SKIP LOCKED` (section 4) |
+| T3 | Prisma mapping claim | Removed "maps directly". Section 6 now covers version pinning, hand-written SQL for features Prisma can't express, and a parity check |
+| T4 | BIGINT in JSON | The API sends IDs as decimal strings (section 7) |
 
 ## 1. Entity relationship diagram
 
@@ -17,11 +32,12 @@ erDiagram
     USERS ||--o{ MONITORS : owns
     MONITORS ||--o{ CHECK_RESULTS : "is checked by"
     MONITORS ||--o{ INCIDENTS : has
-    CHECK_RESULTS |o--o{ INCIDENTS : "first failure of"
+    CHECK_RESULTS |o--o{ INCIDENTS : "first failure of (same monitor)"
+    INCIDENTS ||--o{ INCIDENT_NOTES : has
 
     USERS {
         bigint id PK
-        varchar email UK "unique, case-insensitive"
+        varchar email UK "unique on lower(email)"
         text password_hash
         varchar display_name
         timestamptz created_at
@@ -30,15 +46,16 @@ erDiagram
     MONITORS {
         bigint id PK
         bigint user_id FK
-        varchar name "unique per user"
-        text url "http(s) only"
+        varchar name
+        text url "as entered"
+        text url_normalized "unique per user"
         varchar http_method "GET or HEAD"
         int interval_seconds "60 to 86400"
         int timeout_ms "1000 to 30000"
         smallint expected_status "null = any 2xx/3xx"
         boolean is_active
         varchar current_status "unknown, up, down"
-        timestamptz last_checked_at
+        timestamptz last_checked_at "newest applied check"
         timestamptz next_check_at
         timestamptz created_at
         timestamptz updated_at
@@ -46,145 +63,299 @@ erDiagram
     CHECK_RESULTS {
         bigint id PK
         bigint monitor_id FK
-        timestamptz checked_at
-        boolean is_up
+        varchar trigger "scheduled or manual"
+        timestamptz checked_at "attempt start"
+        varchar outcome "up, http_error, timeout, ..."
+        boolean is_up "generated"
         smallint http_status "null = no response"
-        int response_time_ms
+        int duration_ms "always"
+        int response_time_ms "null = no response"
         varchar error_message
     }
     INCIDENTS {
         bigint id PK
         bigint monitor_id FK
+        varchar status "open or resolved"
+        varchar severity "critical or major"
         timestamptz started_at
-        timestamptz resolved_at "null = open"
-        bigint first_check_id FK "nullable"
+        bigint first_check_id FK "same monitor"
         varchar cause
+        timestamptz recovered_at "null while failing"
+        timestamptz resolved_at "owner action"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    INCIDENT_NOTES {
+        bigint id PK
+        bigint incident_id FK
+        text body "1 to 2000 chars"
         timestamptz created_at
     }
 ```
 
-GitHub renders this diagram automatically.
-
 ## 2. Tables
 
-General conventions:
+Conventions:
 - Primary keys are `BIGINT GENERATED ALWAYS AS IDENTITY`.
 - Every timestamp is `TIMESTAMPTZ`, stored in UTC.
 - Names are `snake_case`.
-- Allowed values are enforced with `CHECK` constraints, not Postgres enums, so they're easy to change in a migration.
+- Allowed values use `CHECK` constraints, not Postgres enums, so they're easy to change in a migration.
 
-### users
+### users (R1)
 | Column | Type | Null | Rules |
 |---|---|---|---|
 | id | BIGINT identity | no | PK |
 | email | VARCHAR(254) | no | Unique on `lower(email)`; must contain `@` |
-| password_hash | TEXT | no | bcrypt/argon2 hash only. Never the plain password |
+| password_hash | TEXT | no | A password hash only, never the plain password |
 | display_name | VARCHAR(100) | yes | |
-| created_at, updated_at | TIMESTAMPTZ | no | default `now()`; the backend sets `updated_at` |
-
-### monitors
-| Column | Type | Null | Rules |
-|---|---|---|---|
-| id | BIGINT identity | no | PK |
-| user_id | BIGINT | no | FK → users.id, `ON DELETE CASCADE` |
-| name | VARCHAR(100) | no | Unique per user `(user_id, name)` |
-| url | TEXT | no | Must start with `http://` or `https://` |
-| http_method | VARCHAR(4) | no | `GET` (default) or `HEAD` |
-| interval_seconds | INTEGER | no | 60–86400, default 300 **[Assumption]** |
-| timeout_ms | INTEGER | no | 1000–30000, default 10000 **[Assumption]** |
-| expected_status | SMALLINT | yes | 100–599. NULL means any 2xx/3xx counts as up |
-| is_active | BOOLEAN | no | default true. Paused monitors are skipped by the worker |
-| current_status | VARCHAR(7) | no | `unknown` (default), `up`, `down`. A cached copy of the latest result, so the dashboard doesn't have to scan history |
-| last_checked_at | TIMESTAMPTZ | yes | NULL until the first check |
-| next_check_at | TIMESTAMPTZ | no | default `now()`, so a new monitor is checked straight away |
 | created_at, updated_at | TIMESTAMPTZ | no | |
 
-### check_results
+### monitors (R2)
 | Column | Type | Null | Rules |
 |---|---|---|---|
 | id | BIGINT identity | no | PK |
-| monitor_id | BIGINT | no | FK → monitors.id, `ON DELETE CASCADE` |
-| checked_at | TIMESTAMPTZ | no | default `now()` |
-| is_up | BOOLEAN | no | The worker decides this using `expected_status` |
-| http_status | SMALLINT | yes | 100–599. NULL when there was no response (timeout, DNS or TLS error) |
-| response_time_ms | INTEGER | yes | ≥ 0 |
-| error_message | VARCHAR(500) | yes | Short reason when down |
+| user_id | BIGINT | no | FK → users, cascade |
+| name | VARCHAR(100) | no | Display label (not unique) |
+| url | TEXT | no | As the user entered it; must start with http(s):// |
+| url_normalized | TEXT | no | Canonical form computed by the API. **`UNIQUE (user_id, url_normalized)`** |
+| http_method | VARCHAR(4) | no | `GET` (default) or `HEAD` |
+| interval_seconds | INTEGER | no | 60–86400. Default 300 is a **PROPOSAL** |
+| timeout_ms | INTEGER | no | 1000–30000, default 10000 |
+| expected_status | SMALLINT | yes | NULL means any 2xx/3xx counts as up |
+| is_active | BOOLEAN | no | Paused monitors are not scheduled |
+| current_status | VARCHAR(7) | no | `unknown` (R4: "not yet checked"), `up`, `down`. Endpoint health only, not incident state |
+| last_checked_at | TIMESTAMPTZ | yes | `checked_at` of the newest check that was **applied** (section 4) |
+| next_check_at | TIMESTAMPTZ | no | When the scheduler should claim it next |
 
-Rule: an up result must have both `http_status` and `response_time_ms`.
+### check_results (R3, R4)
+| Column | Type | Null | Rules |
+|---|---|---|---|
+| id | BIGINT identity | no | PK. Also `UNIQUE (monitor_id, id)` for the composite FK |
+| monitor_id | BIGINT | no | FK → monitors, cascade |
+| trigger | VARCHAR(9) | no | `scheduled` or `manual` (R3). Both use the same rules |
+| checked_at | TIMESTAMPTZ | no | When the attempt **started** |
+| outcome | VARCHAR(16) | no | `up`, `http_error`, `timeout`, `connection_error`, `dns_error`, `blocked` (the target resolved to a private address at check time; BR-02) |
+| is_up | BOOLEAN | generated | `outcome = 'up'` |
+| http_status | SMALLINT | yes | Present **only** when an HTTP response arrived (`up` or `http_error`) |
+| duration_ms | INTEGER | no | Elapsed attempt time. Always recorded, even with no response |
+| response_time_ms | INTEGER | yes | HTTP response latency. Present only with `http_status`, and ≤ `duration_ms` |
+| error_message | VARCHAR(500) | yes | Short reason when not up |
 
-### incidents
+### incidents (R5)
 | Column | Type | Null | Rules |
 |---|---|---|---|
 | id | BIGINT identity | no | PK |
-| monitor_id | BIGINT | no | FK → monitors.id, `ON DELETE CASCADE` |
-| started_at | TIMESTAMPTZ | no | Time of the first failing check |
-| resolved_at | TIMESTAMPTZ | yes | NULL means the incident is still open; must be ≥ `started_at` |
-| first_check_id | BIGINT | yes | FK → check_results.id, `ON DELETE SET NULL` (the result may be deleted by retention later) |
-| cause | VARCHAR(500) | yes | Copied from the first failing check, so it survives retention |
+| monitor_id | BIGINT | no | FK → monitors, cascade |
+| status | VARCHAR(8) | no | `open` (default) or `resolved`. **At most one `open` per monitor** (BR-03) |
+| severity | VARCHAR(8) | no | `critical` or `major`. **PROPOSAL** (section 3.2) |
+| started_at | TIMESTAMPTZ | no | `checked_at` of the first failing check |
+| first_check_id | BIGINT | yes | Must be a check of **the same monitor** (composite FK). NULL only if that check was deleted |
+| cause | VARCHAR(500) | yes | Copied from the first failing check |
+| recovered_at | TIMESTAMPTZ | yes | Set when a newer successful check is applied; cleared if it fails again before resolution. Must be ≥ `started_at` |
+| resolved_at | TIMESTAMPTZ | yes | Set only by the owner's resolve action. Present exactly when status = `resolved`, and must be ≥ `recovered_at` |
+
+### incident_notes (R5)
+| Column | Type | Null | Rules |
+|---|---|---|---|
+| id | BIGINT identity | no | PK |
+| incident_id | BIGINT | no | FK → incidents, cascade |
+| body | TEXT | no | 1–2000 characters after trimming |
 | created_at | TIMESTAMPTZ | no | |
+
+Only the incident's owner can add notes (BR-01), so no separate author column is needed in the MVP.
 
 ## 3. Rules
 
-### Ownership
-- Each monitor belongs to exactly one user (`monitors.user_id`).
-- Check results and incidents have no `user_id` of their own. Their owner is the owner of their monitor.
-- **The API must filter every query by the signed-in user**, for example `JOIN monitors m ON m.id = cr.monitor_id WHERE m.user_id = $currentUser`. If a user asks for a monitor they don't own, the API returns `404`, not `403`, so it doesn't reveal that the monitor exists. *(To be confirmed in PULSE-26.)*
-- Deleting a user deletes their monitors. Deleting a monitor deletes its check results and incidents (cascade).
+### 3.1 Ownership (BR-01)
+- Ownership is stored once, in `monitors.user_id`. Checks, incidents and notes are owned by the owner of their monitor.
+- **The API must filter every query by the signed-in user.** If a user asks for someone else's resource, the API returns `404`, so it doesn't reveal that the resource exists. *(Exact codes are confirmed in PULSE-26.)*
+- The composite FK means an incident can't point at a check from another monitor. That rules out pointing at another owner's check too.
 
-### Check-history retention
-- **[Assumption]** Check results are kept for **30 days**. Incidents are kept for the life of the monitor.
-- A daily cleanup job deletes old results in batches, so it never holds long locks:
-  ```sql
-  DELETE FROM check_results
-  WHERE id IN (SELECT id FROM check_results
-               WHERE checked_at < now() - INTERVAL '30 days'
-               LIMIT 5000);
-  -- repeat until 0 rows are deleted
-  ```
-- Uptime % and response-time charts can only cover the retention window (≤ 30 days). Incidents still show older outages.
-- Volume estimate: one monitor checked every 60 s produces about 43,000 rows per 30 days. With 100 monitors that's about 4.3 M rows, which PostgreSQL handles fine with the indexes below. Partitioning by month is a possible later step and isn't needed for the MVP.
+### 3.2 Incident lifecycle (R5, BR-03, BR-04)
 
-### Open-incident consistency
-- **The database enforces at most one open incident per monitor**, using the partial unique index `incidents_one_open_per_monitor_uq ON incidents (monitor_id) WHERE resolved_at IS NULL`. A second open incident is rejected even if two workers race.
-- `resolved_at >= started_at` is enforced by a CHECK constraint.
-- The worker does all of the following **in one transaction** for each check:
-  1. Insert the `check_results` row.
-  2. Update `monitors` with `current_status`, `last_checked_at`, and `next_check_at = now() + interval_seconds`.
-  3. If the result is **down**, open an incident if none is open:
-     `INSERT INTO incidents (monitor_id, started_at, first_check_id, cause) VALUES (...) ON CONFLICT (monitor_id) WHERE resolved_at IS NULL DO NOTHING;`
-  4. If the result is **up**, close any open incident:
-     `UPDATE incidents SET resolved_at = $checked_at WHERE monitor_id = $id AND resolved_at IS NULL;`
-- Because all four steps commit together, `monitors.current_status = 'down'` and an open incident always appear together, and so do `up` and no open incident.
+```text
+            failing check (no open incident)
+   (none) ───────────────────────────────▶ OPEN, recovered_at = NULL
+                                             │  ▲
+                 newer successful check      │  │ newer failing check   (PROPOSAL: same
+                 sets recovered_at           ▼  │ clears recovered_at    incident continues)
+                                    OPEN, recovered_at set
+                                             │
+                 owner "resolve" action      │ allowed only when recovered_at is set
+                                             ▼
+                                         RESOLVED  (history and notes stay visible, BR-05)
+```
 
-## 4. Indexes
+- **Creation:** a failing check on a monitor with no open incident inserts one. The partial unique index `incidents (monitor_id) WHERE status = 'open'` guarantees one open incident even when two completions race. The insert uses `ON CONFLICT … DO UPDATE`.
+- **Recovery is not resolution:** a successful check only sets `recovered_at`. It never changes `status`.
+- **Resolution:** the API's resolve endpoint checks ownership, then sets `status = 'resolved', resolved_at = now()`. The database rejects it unless `recovered_at` is set (`incidents_resolve_needs_recovery`). If the endpoint failed again after recovering, `recovered_at` is NULL again, so resolving is rejected ("still failing", PRD R5).
+- **Re-failure before resolution (PROPOSAL, PRD decision owned by Carlo with Majd):** the same open incident continues and `recovered_at` is cleared. A failure after resolution opens a new incident.
+- **Severity (PROPOSAL, PRD decision owned by Carlo with Gaelle and Mirla):** set once, from the first failing check:
+  - `critical` when there was no HTTP response (`timeout`, `connection_error`, `dns_error`, `blocked`)
+  - `major` when the server answered with an unexpected status (`http_error`)
 
-| Index | Columns | Query it serves |
+  The values and the rule live in one CHECK constraint, so they're easy to change.
+
+### 3.3 Duplicate URLs (R2), PROPOSAL (owned by Gaelle with Mirla)
+The API computes `url_normalized` before insert or update. The proposed rules:
+1. Lower-case the scheme and host.
+2. Drop the default port (`:80` for http, `:443` for https).
+3. Use `/` when the path is empty.
+4. Drop the `#fragment`.
+5. Keep the rest of the path and the query string exactly as entered.
+
+`http` and `https` stay different URLs. Uniqueness is enforced by `UNIQUE (user_id, url_normalized)`, so two concurrent creates or edits can't both succeed. The API turns the violation into a `409` duplicate message. Different users may monitor the same URL.
+
+### 3.4 What a check records (R3, PRD "honest failure display")
+- Every attempt stores `duration_ms`, the elapsed time from start until it finished or gave up.
+- `http_status` and `response_time_ms` exist **only** when an HTTP response arrived. CHECK constraints forbid a status or latency for `timeout`, `connection_error`, `dns_error` and `blocked`.
+- `outcome` also records the **failure type** (Gaelle's PULSE-34 review, UN-2) without new tables.
+- **Open (PRD, owned by Carlo with Majd and Mirla):** whether the 10-check acceptance test counts `duration_ms` as "a response time" when there is no response. The schema stores both values, so either answer works without a migration.
+
+### 3.5 History retention (BR-05)
+- **The MVP deletes nothing automatically.** Check history and incidents stay visible after resolution (BR-05).
+- **PROPOSAL (owned by Carlo with Majd and Mirla):** if the team agrees on a retention window for check results, the cleanup job deletes old rows in batches.
+  - Incidents and notes are never deleted by it.
+  - `incidents.cause` keeps the reason.
+  - `ON DELETE SET NULL (first_check_id)` only clears the link, as tested.
+- Sizing for that discussion: one monitor checked every 300 s makes about 8,600 rows a month.
+
+## 4. Check completion and concurrency (review point T2)
+
+Endpoint health (`monitors.current_status`) and incident state are updated together, and **only by the newest result**.
+
+**Claiming scheduled work**, so two workers never check the same monitor for the same slot:
+```sql
+WITH due AS (
+  SELECT id FROM monitors
+  WHERE is_active AND next_check_at <= now()
+  ORDER BY next_check_at
+  LIMIT 20
+  FOR UPDATE SKIP LOCKED
+)
+UPDATE monitors m SET next_check_at = now() + make_interval(secs => m.interval_seconds)
+FROM due WHERE m.id = due.id
+RETURNING m.id, m.url, m.http_method, m.timeout_ms, m.expected_status;
+```
+
+**Completing a check.** Manual and scheduled checks use the same procedure, in one transaction:
+1. `SELECT last_checked_at FROM monitors WHERE id = $m FOR UPDATE;` This serializes all completions for this monitor.
+2. Insert the `check_results` row. **Every result is kept in history**, including late ones.
+3. Apply the result only if it is newer:
+   ```sql
+   UPDATE monitors SET current_status = $status, last_checked_at = $checked_at
+   WHERE id = $m AND (last_checked_at IS NULL OR last_checked_at < $checked_at);
+   ```
+   If no row was updated, the result is **stale**: stop here (commit), and change nothing else.
+4. If it was applied and the check **failed**:
+   ```sql
+   INSERT INTO incidents (monitor_id, severity, started_at, first_check_id, cause)
+   VALUES ($m, $severity, $checked_at, $check_id, $error)
+   ON CONFLICT (monitor_id) WHERE status = 'open'
+   DO UPDATE SET recovered_at = NULL, updated_at = now();
+   ```
+5. If it was applied and the check **succeeded**:
+   ```sql
+   UPDATE incidents SET recovered_at = $checked_at, updated_at = now()
+   WHERE monitor_id = $m AND status = 'open' AND recovered_at IS NULL;
+   ```
+
+Why this is safe:
+- The row lock in step 1 means completions for one monitor run one after another.
+- The `last_checked_at < $checked_at` guard means a late result can't overwrite newer status, and can't open, recover or affect an incident.
+- Incidents are never closed by the worker, so the old "resolved before started" rollback can't happen.
+
+Which process runs the worker, and how many, is an architecture decision (PULSE-24).
+
+## 5. Indexes
+
+| Index | Columns | Purpose |
 |---|---|---|
-| `users_email_lower_uq` (unique) | `lower(email)` | Login lookup; stops duplicate accounts that differ only by case |
-| `monitors_name_per_user_uq` (unique) | `(user_id, name)` | Stops duplicate monitor names for a user |
+| `users_email_lower_uq` (unique) | `lower(email)` | Login lookup; no duplicate accounts that differ only by case |
+| `monitors_user_url_uq` (unique) | `(user_id, url_normalized)` | R2 duplicate rejection, safe under concurrency |
 | `monitors_user_idx` | `(user_id)` | Dashboard: "my monitors" |
-| `monitors_due_idx` (partial) | `(next_check_at) WHERE is_active` | Worker: `WHERE is_active AND next_check_at <= now()` |
-| `check_results_monitor_time_idx` | `(monitor_id, checked_at DESC)` | Latest N results, uptime % and response times for one monitor over a window |
-| `check_results_checked_at_idx` | `(checked_at)` | Retention cleanup by age |
-| `incidents_one_open_per_monitor_uq` (partial unique) | `(monitor_id) WHERE resolved_at IS NULL` | Enforces one open incident; also finds the open incident fast |
-| `incidents_monitor_started_idx` | `(monitor_id, started_at DESC)` | Incident history for a monitor |
-| `incidents_first_check_idx` (partial) | `(first_check_id)` | Makes `ON DELETE SET NULL` fast when retention deletes results |
+| `monitors_due_idx` (partial) | `(next_check_at) WHERE is_active` | Scheduler claim query |
+| `check_results_monitor_id_uq` (unique) | `(monitor_id, id)` | Target of the same-monitor composite FK |
+| `check_results_monitor_time_idx` | `(monitor_id, checked_at DESC)` | Latest checks and history for a monitor (R4) |
+| `check_results_checked_at_idx` | `(checked_at)` | Batch cleanup, only if retention is agreed |
+| `incidents_one_open_per_monitor_uq` (partial unique) | `(monitor_id) WHERE status = 'open'` | BR-03; also finds the open incident quickly |
+| `incidents_monitor_started_idx` | `(monitor_id, started_at DESC)` | Incident history per monitor |
+| `incidents_first_check_idx` (partial) | `(monitor_id, first_check_id)` | Makes FK checks and SET NULL fast when a check is deleted |
+| `incident_notes_incident_idx` | `(incident_id, created_at)` | Notes of an incident, in order |
 
-PostgreSQL does not create indexes on foreign-key columns automatically. Each FK above is covered by one of these indexes.
+## 6. Prisma and migrations (review point T3)
 
-## 5. Open questions (for Carlo, Gaelle and the PRD)
+- **Pin the version.** PULSE-69 adds `prisma` and `@prisma/client` with an **exact** version (no `^` or `~`), committed with `package-lock.json`. Upgrades happen in their own PR.
+- **Not everything fits `schema.prisma`.** At least these features need hand-written SQL in the migration:
+  - the CHECK constraints
+  - the `lower(email)` expression index
+  - the partial indexes (`WHERE is_active`, `WHERE status = 'open'`)
+  - `ON DELETE SET NULL (first_check_id)` on the composite FK
+  - the generated `is_up` column
 
-1. Does the MVP need user accounts, or one shared admin? If there are no accounts, `users` and `user_id` are removed.
-2. What are the minimum check interval and the retention period (60 s and 30 days are assumed)?
-3. Should an incident open after **1** failed check or after **N** in a row (to avoid false alarms)? N > 1 would need a `consecutive_failures` counter on `monitors`.
-4. Is the same URL allowed twice for one user? There is no unique constraint on it now.
-5. Are notifications (email or webhook) in scope? They would need an extra `notification_channels` table.
-6. Prisma or raw SQL migrations (PULSE-28 and PULSE-69)? This schema maps directly to a Prisma schema either way.
+  If the pinned Prisma version supports one of them natively, use that. Otherwise:
+  1. Create the migration with `prisma migrate dev --create-only`.
+  2. Add the missing statements from `schema.sql` to the generated `migration.sql`.
+  3. Review it in the PR.
+- **Prove parity.** In CI, or by hand before merging a migration PR:
+  1. Apply all migrations to an empty database.
+  2. Run `verify.sql`; it must print `ALL CHECKS PASSED`.
+  3. Compare the result with `schema.sql`, for example with `prisma migrate diff` or `pg_dump --schema-only`. Differences must be explained in the PR.
 
-## 6. Review checklist (PULSE-25 acceptance criteria)
+## 7. How the API represents these values (review point T4)
 
-- [x] The ERD covers users, monitors, check results and incidents
+- **IDs are sent as decimal strings** in JSON (`"id": "42"`) and accepted as strings, because `BIGINT` can exceed JavaScript's safe integer range. The backend never converts them to `Number`.
+- Timestamps are ISO 8601 in UTC. Status, outcome and severity values are sent exactly as stored.
+- The final shapes belong to the REST contract (PULSE-26).
+
+## 8. Decisions still open
+
+These are the PRD's *Decisions needed before approval*, plus one schema-level choice.
+
+| Decision | Current schema choice | Owner (from the PRD) |
+|---|---|---|
+| Response time when there is no HTTP response | Stores both `duration_ms` and nullable `response_time_ms` | Carlo with Majd and Mirla |
+| Severity values and rule | `critical` / `major`, set from the first failing check | Carlo with Gaelle and Mirla |
+| URL equivalence | Rules in section 3.3 | Gaelle with Mirla |
+| Default check interval | 300 s (allowed 60–86400) | Carlo with Majd and Mirla |
+| History retention | None in the MVP; cleanup only if agreed | Carlo with Majd and Mirla |
+| Re-failure after recovery but before resolution | Same incident continues | Carlo with Majd |
+| Worker process model | Any number of workers (claim + completion procedure) | PULSE-24 (Majd) |
+
+## 9. Verification
+
+`verify.sql` runs inside one transaction and rolls back at the end, so it leaves nothing behind. It checks:
+- duplicate email (by case)
+- duplicate URL per user, on create **and** edit; another user may use the same URL
+- non-http URL
+- fabricated latency or status
+- an incident pointing at another monitor's check, on insert **and** update
+- a second open incident
+- resolving while still failing
+- `resolved` without `resolved_at`
+- recovery not closing an incident
+- resolving after recovery
+- a blank note
+- a stale result not overwriting newer status
+- deleting a check nulls only `first_check_id`
+- cascades on user delete
+
+**How to run it:**
+```powershell
+psql -d pulseops_scratch -f docs/database/schema.sql -f docs/database/verify.sql
+```
+You can also open both files in pgAdmin's Query Tool and run them in order, on an empty database.
+
+**Result so far:**
+- On **PostgreSQL 18.6** (PGlite, an embedded Postgres): `ALL CHECKS PASSED`.
+- A separate script (not committed) also ran the full completion procedure from section 4: 24 of 24 cases passed, including repeated failures, recovery, re-failure, resolution and a stale late result.
+- It has **not** yet been run on the team's PostgreSQL 18.7 install. That run, and the parity check in section 6, belong to PULSE-69.
+
+## 10. Review checklist (PULSE-25)
+
+- [x] ERD covers users, monitors, check results, incidents and incident notes, aligned with PRD v1.1
 - [x] Tables specify types, primary and foreign keys, required fields and constraints
-- [x] Ownership, check-history retention and open-incident rules are documented
+- [x] Ownership, history retention and incident rules are documented
 - [x] Indexes and their purpose are identified
-- [ ] Carlo reviews consistency with the PRD and API, and the ERD is linked in Jira
+- [ ] Carlo reviews revision 2 (PULSE-59); the open decisions in section 8 are agreed with their owners
+- [ ] API contract (PULSE-26) cross-checked
