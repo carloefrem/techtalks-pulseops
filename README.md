@@ -181,7 +181,7 @@ techtalks-pulseops/
 | `docs/database/` | In review ([PR #1](https://github.com/carloefrem/techtalks-pulseops/pull/1)) | PULSE-25 | Database design: ERD, tables, indexes, `schema.sql`, `verify.sql` |
 | `docs/backend/` | In review ([PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2)) | PULSE-67 | Backend folder structure, scripts and env plan |
 | `frontend/` | Planned | PULSE-27 | Created by the frontend setup (section 8) |
-| `backend/` | Planned | PULSE-28 | Created only after implementation is authorized (section 9) |
+| `backend/` | Planned | PULSE-28 | Created by the backend setup (section 9); implementation authorized 21 Nov 2026 |
 | `.github/` | Planned | PULSE-22 | PR template and CI, if adopted |
 | `.nvmrc` | Planned | PULSE-22 | See below |
 
@@ -195,7 +195,7 @@ The .nvmrc file should contain:
 
 ## 8. Initialize the Frontend
 
-> **Before running these commands:** implementation authorization for the frontend (PULSE-27) must be recorded in Jira. Until then, do not create the `frontend/` folder or install packages.
+> **Before running these commands:** implementation authorization for the frontend (PULSE-27) must be recorded in Jira. **Recorded 21 Nov 2026** by Carlo on [PULSE-27](https://pulseops-internship.atlassian.net/browse/PULSE-27); initialization starts once the frontend plan (PR #6) is merged.
 
 Only the assigned setup pair should initialize the application.
 
@@ -214,7 +214,7 @@ Configure Tailwind and testing afterward.
 
 ## 9. Initialize the Backend
 
-> **Before running these commands:** implementation authorization for the backend (PULSE-28) must be recorded in Jira. Until then, do not create the `backend/` folder or install packages.
+> **Before running these commands:** implementation authorization for the backend (PULSE-28) must be recorded in Jira. **Recorded 21 Nov 2026** by Carlo on [PULSE-28](https://pulseops-internship.atlassian.net/browse/PULSE-28).
 
 Return to the repository root:
 
