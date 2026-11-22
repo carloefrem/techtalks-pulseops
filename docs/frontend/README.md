@@ -3,7 +3,7 @@
 **Status:** Plan, waiting for Mirla's review. No frontend code exists yet.
 **Author:** Gaelle · **Reviewer:** Mirla
 **Parent:** PULSE-27 (S1-08 Prepare React frontend foundation)
-**Follows:** the stack in the root [README](../../README.md) (Node 24.22.3, React 19, TypeScript, Vite, Tailwind CSS 4, React Router, Recharts, Lucide React, Vitest, React Testing Library, jsdom), the backend plan in PR #2 (`docs/backend/`) and the API contract in PULSE-26 (`docs/api/`).
+**Follows:** the stack in the root [README](../../README.md) (Node 24.22.3, React 19, TypeScript, Vite, Tailwind CSS 4, React Router, Recharts, Lucide React, Vitest, React Testing Library, jsdom), the backend plan in [PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2) (`docs/backend/`) and the API contract in [PR #5](https://github.com/carloefrem/techtalks-pulseops/pull/5) (`docs/api/`, PULSE-26). Until those PRs are merged, `docs/api/` and `docs/backend/` only exist on their PR branches, so this plan links the PRs.
 
 ---
 
@@ -104,6 +104,7 @@ VITE_API_BASE_URL="/api"
 ```ts
 server: {
   port: 5173,
+  strictPort: true, // fail instead of moving to 5174, so the origin always matches FRONTEND_ORIGIN
   proxy: { "/api": "http://localhost:3001" },
 },
 ```
@@ -114,6 +115,8 @@ This means the browser sees the frontend and the API as the **same origin** (`ht
 - **Everything starting with `VITE_` is built into the JavaScript and is public.** Never put a secret, password or token in a frontend env file.
 - Never commit `.env.local`. The root `.gitignore` already ignores `.env` and `.env.*`, but not `.env.example`.
 - Every new variable is added to `.env.example` **and** `config/env.ts` in the same PR.
+
+**Node version.** `package.json` sets `"engines": { "node": ">=24.22.3" }`, the same as the backend in PR #7, so a wrong Node version is obvious.
 
 ## 4. npm scripts (`frontend/package.json`)
 
@@ -143,6 +146,10 @@ Each page lists the API calls it uses, from `docs/api/README.md` section 5. Only
 | `/incidents`, `/incidents/:id` | Incident list, detail, notes, resolve | `GET /api/incidents...`, `POST .../notes`, `POST .../resolve` | later (R5) |
 | `*` | Not found | – | PULSE-65 |
 
+**Incident resolve button (R5 / BR-04).** On the incident pages, **Resolve** is enabled only when the monitor has recovered (`monitorCurrentStatus = "up"`, PR #5 §5.5). If the API still answers `409 MONITOR_STILL_DOWN`, the page shows that message. A successful check never closes an incident by itself; only the owner's resolve action does.
+
+**Dashboard refresh.** `/dashboard` polls `GET /api/monitors` every 30 s while the page is open, and pauses while the browser tab is hidden (`document.visibilityState`), so idle tabs don't keep calling the API.
+
 **Protected routes.** Every route except `/`, `/login` and `/register` calls `GET /api/auth/me` first. A `401` sends the user to `/login` (PRD section 3, "Unauthorized action"). This is a convenience only; the backend's ownership checks are what actually protect the data.
 
 ## 6. API client rules (`api/client.ts`)
@@ -153,7 +160,7 @@ Each page lists the API calls it uses, from `docs/api/README.md` section 5. Only
 - A network failure (backend not running, connection refused) becomes `ApiError { status: 0, code: "NETWORK_ERROR" }`. This is a frontend-only code, so pages can show "API unavailable" instead of crashing.
 - IDs stay **strings** everywhere (`docs/api/README.md` section 1). Never `Number(id)`.
 - Every request has a timeout (proposal: 15 s) using `AbortController`, so a stuck request doesn't leave the page loading forever.
-- `responseTimeMs` and `httpStatus` can be `null`. The UI shows "no response" and never `0 ms`.
+- `responseTimeMs` and `httpStatus` can be `null`. The UI shows "no response" and never `0 ms`. For failed checks the monitor page uses `durationMs` (always present, PR #5) to show "no response after N ms".
 
 ## 7. Starter page and health status (PULSE-65 / PULSE-72)
 
@@ -162,7 +169,7 @@ The first page proves the frontend runs and can reach the backend.
 | Backend state | What `GET /api/health` returns | What the page shows |
 |---|---|---|
 | Running | `200 { "status": "ok" }` | "API: online" with a green badge |
-| Not running / proxy can't connect | Network error, or `502`/`504` from the dev proxy | "API: unavailable" with a red badge, the base URL being used, and a **Retry** button |
+| Not running / proxy can't connect | A network error, or **any 5xx without our JSON error shape** (the exact status the Vite proxy returns can vary; Mirla confirms it in PULSE-66) | "API: unavailable" with a red badge, the base URL being used, and a **Retry** button |
 | Something else | Any other status or body | "API: unexpected response (status N)" |
 | Request in progress | – | "Checking API…" |
 
@@ -199,10 +206,10 @@ If PowerShell blocks npm scripts, use `npm.cmd` instead, as the root README says
 
 1. ~~Who gives the implementation authorization in section 0, and where is it recorded?~~ **Resolved (Nov 21):** Carlo (team lead), recorded in PULSE-27 and PULSE-28. See section 0.
 2. ~~**Track compliance:** is React with Vite (not Next.js) acceptable for the "React.js / Next.js" track?~~ **Resolved (Nov 21):** yes. The approved proposal is the React.js track, so React + Vite is fine (Carlo, PR #6 review).
-3. Should `npm create vite@latest` be pinned to a specific version, so the template doesn't change between now and initialization? The lockfile only pins packages after the project exists.
+3. ~~Should `npm create vite` be pinned to a specific version?~~ **Resolved (Nov 22):** yes. PULSE-65 uses `npm create vite@<exact version>` and writes that version in its PR; after that the lockfile pins everything (Mirla, PR #6 review).
 4. ~~Tests next to the file or in a separate `tests/` folder?~~ **Resolved (Nov 21):** next to the file (`ApiStatus.test.tsx` beside `ApiStatus.tsx`), the default this plan proposed (Carlo, PR #6 review).
 5. ~~Tailwind packages in `dependencies` or `devDependencies`?~~ **Resolved (Nov 21):** `devDependencies`, the default this plan proposed (Carlo, PR #6 review).
-6. Dashboard refresh: poll `GET /api/monitors` every 30 s while the page is open? (Also PULSE-26 Q9.)
+6. ~~Dashboard refresh interval?~~ **Resolved (Nov 22):** poll every 30 s, paused while the tab is hidden (section 5; Mirla, PR #6 review). Also PULSE-26 Q9.
 7. Is GitHub Actions CI (`typecheck` + `test` + `build`) in scope for Sprint 1? (Same as PR #2 Q4.)
 
 ## 11. Review checklist (PULSE-64 / PULSE-27)
