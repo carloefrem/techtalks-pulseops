@@ -736,7 +736,7 @@ components:
           type: string
           format: uri
           maxLength: 2048
-          description: http(s) only, no credentials in the URL, must pass the safety check (README 6.4). Stored normalized (README 6.3).
+          description: http(s) only, no credentials in the URL, must pass the safety check (README 6.4). Stored and returned as typed; the normalized form (README 6.3) is used only for the duplicate check.
         httpMethod:
           type: string
           enum: [GET, HEAD]
@@ -862,7 +862,7 @@ components:
 
     CheckResult:
       type: object
-      required: [id, monitorId, checkedAt, isUp, httpStatus, responseTimeMs, errorMessage]
+      required: [id, monitorId, checkedAt, isUp, httpStatus, responseTimeMs, durationMs, errorMessage]
       properties:
         id:
           $ref: "#/components/schemas/Id"
@@ -884,6 +884,10 @@ components:
           minimum: 0
           nullable: true
           description: null when there was no HTTP response. Never a made-up value.
+        durationMs:
+          type: integer
+          minimum: 0
+          description: Elapsed time of the whole attempt, always present (even with no response). responseTimeMs <= durationMs when both are set.
         errorMessage:
           type: string
           maxLength: 500

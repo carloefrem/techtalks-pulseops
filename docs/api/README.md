@@ -198,6 +198,7 @@ Only `name` and `url` are required. The others use the database defaults. → `2
       "isUp": false,
       "httpStatus": null,
       "responseTimeMs": null,
+      "durationMs": 10003,
       "errorMessage": "Timed out after 10000 ms"
     }
   ],
@@ -209,7 +210,7 @@ Only `name` and `url` are required. The others use the database defaults. → `2
 
 `POST /api/monitors/{id}/checks` runs a check right away, using the same rules as the scheduled worker (PRD "Reliability" check). It waits for the result (at most `timeoutMs`) and returns `201` with `{ "check": CheckResult, "monitor": Monitor }`, so the frontend can refresh both the row and the history. A manual check also opens an incident if it fails, the same as a scheduled one.
 
-`responseTimeMs` is `null` when there was no HTTP response. The API never sends a made-up latency (PRD "Honest failure display").
+`responseTimeMs` is `null` when there was no HTTP response. The API never sends a made-up latency (PRD "Honest failure display"). `durationMs` is always present: the elapsed time of the whole attempt, even when there was no response (database `duration_ms`, PR #1 rev 2). When both are present, `responseTimeMs ≤ durationMs`. The frontend uses it to show "no response after N ms".
 
 ### 5.5 Incidents
 
@@ -287,7 +288,7 @@ The PRD asks Gaelle and Mirla to define which URLs count as duplicates. Proposal
 
 So `HTTPS://API.example.com:443/health#top` and `https://api.example.com/health` are duplicates, but `/health` and `/health/` are not. `http://` and `https://` versions of the same host are **different** monitors.
 
-The normalized URL is what gets stored and returned. The duplicate check also runs on `PATCH` when `url` changes, and the database needs a unique constraint on `(user_id, url)` so two requests at the same time can't both get through (see section 8).
+**Decided (Nov 22):** the API stores and returns the URL **as the user typed it** (`url`). The normalized form is stored separately (`url_normalized` in PR #1 rev 2) and is used **only** for the duplicate check. The duplicate check also runs on `PATCH` when `url` changes, and the database's `UNIQUE (user_id, url_normalized)` stops two requests at the same time from both getting through (see section 8).
 
 ### 6.4 URL safety (BR-02)
 
@@ -325,7 +326,18 @@ This walks through PRD section 3 and the section 6 acceptance test.
 
 ## 8. Conflicts with the database design (PR #1)
 
-PR #1 (`feature/PULSE-25-database-design`, head `00eff8e`) is Mirla's and is still open. This PR doesn't change it. These are the places where the PRD, and so this contract, needs something the current schema doesn't have. They need to be resolved in PR #1 (or a follow-up) before PULSE-69 creates the first migration.
+PR #1 (`feature/PULSE-25-database-design`) is Mirla's and is still open. This PR doesn't change it. The table below was written against `00eff8e`; the **Status** list underneath records what PR #1 revision 2 (`816db53`, `d82d4a8`) changed.
+
+**Status after PR #1 rev 2 (checked Nov 22):**
+
+- **C1 resolved.** The worker never resolves. A successful check only sets `incidents.recovered_at`; `status`/`resolved_at` are set only by the resolve action, and the database rejects resolving without recovery evidence.
+- **C2 partly resolved.** `incidents.severity` exists, but the values differ: the database proposes `critical` / `major`, this contract proposes `low` / `medium` / `high`. One set must be chosen with the rule (Q2).
+- **C3 resolved.** `incident_notes` added as suggested.
+- **C4 resolved.** `UNIQUE (user_id, url_normalized)`, using the same normalization as 6.3.
+- **C5 resolved.** Accounts are kept.
+- **C6 aligned.** The partial unique index is now `WHERE status = 'open'`, and re-failure before resolution continues the same incident. Still a team decision (Q3).
+- **C7 unchanged.** IDs are strings in the API.
+- **Also aligned:** `UNIQUE (user_id, name)` for `409 DUPLICATE_MONITOR_NAME`; `duration_ms` for `durationMs` (Q4).
 
 | # | PRD need | Current PR #1 schema | What the contract assumes | Suggested schema change |
 |---|---|---|---|---|
@@ -361,14 +373,14 @@ Until PR #3 is merged, `main` tells new teammates to install 17 while the design
 | Q1 | JWT in a cookie or a server session? (PR #2 Q3) | Section 3, `.env.example` | Majd, Mirla |
 | Q2 | Severity values and the rule for setting them (e.g. timeout/no response → `high`, wrong status code → `medium`)? | C2, Incident schema | Carlo, Gaelle, Mirla (PRD) |
 | Q3 | If a recovered but unresolved incident's monitor fails again, does it reuse the same incident? (This contract says yes) | C6, worker | Carlo, Majd (PRD) |
-| Q4 | When there's no HTTP response, do we store the elapsed attempt time separately from response latency? If yes, add `durationMs` to CheckResult. | Section 5.4, PRD section 6 test | Carlo, Majd, Mirla (PRD) |
+| Q4 | ~~Store the elapsed attempt time separately from response latency?~~ **Resolved (Nov 22):** yes. `durationMs` (always present) is added to CheckResult; the database already stores `duration_ms` | Section 5.4 | – |
 | Q5 | Do we record a failure type (`timeout`, `dns`, `connection`, `http_status`) on each failed check? (Interview finding UN-2) | CheckResult, `check_results` | Gaelle, Mirla |
 | Q6 | Are notes allowed on resolved incidents? (This contract allows it) | Section 5.5 | Team |
 | Q7 | Is the duplicate-URL normalization in 6.3 acceptable? | C4 | Gaelle, Mirla |
 | Q8 | Rate limits for login and manual checks: values? Carlo's review (Nov 21) recommends implementing the manual-check `429` in the MVP, since each manual check is an outbound request that can block for up to 30 s | `429 RATE_LIMITED`, `POST /monitors/{id}/checks` | Majd |
 | Q9 | Dashboard refresh: polling every 30 s for the MVP, or something else? | Frontend (PULSE-27) | Gaelle, Majd |
 | Q10 | Deleting a monitor cascades to its checks, incidents and notes (section 5.3), but BR-05 says history stays visible after resolution. Keep the cascade for the MVP and note the limitation, or soft-delete/archive monitors? (Carlo's review: cascade is fine for the MVP if noted) | Section 5.3, C-table, PR #1 | Team |
-| Q11 | A paused monitor (`isActive=false`) is never checked again, so its open incident can never reach `currentStatus = up` and can't be resolved. Allow resolving when the monitor is paused, or require a manual check first? | Sections 5.5, 6.2, BR-04 | Carlo, Gaelle |
+| Q11 | A paused monitor (`isActive=false`) is never checked again, so its open incident can never reach `currentStatus = up` and can't be resolved. Allow resolving when the monitor is paused, or require a manual check first? The database currently requires `recovered_at` to resolve (PR #1 rev 2), so either choice also changes PR #1 | Sections 5.5, 6.2, BR-04 | Carlo, Gaelle |
 | Q12 | With redirects not followed and `expectedStatus = null`, a 3xx (e.g. a redirect to a login or error page) counts as up. Treat 3xx as up only when `expectedStatus` says so, or document the limitation in the UI? | Sections 6.2, 6.4 | Gaelle, Majd |
 
 ## 11. Review checklist (PULSE-26 acceptance criteria)
