@@ -24,6 +24,7 @@ Anything marked **PROPOSAL** is a product decision that the PRD's *Decisions nee
 | T2 | Concurrent and stale check completions | A per-monitor row lock is taken on completion, and only results newer than `last_checked_at` are applied. Scheduled claims use `FOR UPDATE SKIP LOCKED` (section 4) |
 | T3 | Prisma mapping claim | Removed "maps directly". Section 6 now covers version pinning, hand-written SQL for features Prisma can't express, and a parity check |
 | T4 | BIGINT in JSON | The API sends IDs as decimal strings (section 7) |
+| A1 | Align with the API contract (PR #5) | Added `UNIQUE (user_id, name)` for `409 DUPLICATE_MONITOR_NAME`. Both the original `url` and `url_normalized` are stored; which one the API returns is left to PULSE-26 |
 
 ## 1. Entity relationship diagram
 
@@ -115,7 +116,7 @@ Conventions:
 |---|---|---|---|
 | id | BIGINT identity | no | PK |
 | user_id | BIGINT | no | FK → users, cascade |
-| name | VARCHAR(100) | no | Display label (not unique) |
+| name | VARCHAR(100) | no | Display label, trimmed by the API. **`UNIQUE (user_id, name)`** (API contract `409 DUPLICATE_MONITOR_NAME`) |
 | url | TEXT | no | As the user entered it; must start with http(s):// |
 | url_normalized | TEXT | no | Canonical form computed by the API. **`UNIQUE (user_id, url_normalized)`** |
 | http_method | VARCHAR(4) | no | `GET` (default) or `HEAD` |
@@ -273,6 +274,7 @@ Which process runs the worker, and how many, is an architecture decision (PULSE-
 |---|---|---|
 | `users_email_lower_uq` (unique) | `lower(email)` | Login lookup; no duplicate accounts that differ only by case |
 | `monitors_user_url_uq` (unique) | `(user_id, url_normalized)` | R2 duplicate rejection, safe under concurrency |
+| `monitors_user_name_uq` (unique) | `(user_id, name)` | Duplicate monitor names per user (API contract), safe under concurrency |
 | `monitors_user_idx` | `(user_id)` | Dashboard: "my monitors" |
 | `monitors_due_idx` (partial) | `(next_check_at) WHERE is_active` | Scheduler claim query |
 | `check_results_monitor_id_uq` (unique) | `(monitor_id, id)` | Target of the same-monitor composite FK |
@@ -327,6 +329,7 @@ These are the PRD's *Decisions needed before approval*, plus one schema-level ch
 `verify.sql` runs inside one transaction and rolls back at the end, so it leaves nothing behind. It checks:
 - duplicate email (by case)
 - duplicate URL per user, on create **and** edit; another user may use the same URL
+- duplicate monitor name per user
 - non-http URL
 - fabricated latency or status
 - an incident pointing at another monitor's check, on insert **and** update

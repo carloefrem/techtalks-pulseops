@@ -40,6 +40,8 @@ SELECT pg_temp.expect_error('duplicate email, different case',
   $q$INSERT INTO users (email, password_hash) VALUES ('owner@example.com', 'h')$q$, '23505');
 SELECT pg_temp.expect_error('same user adds the same URL twice',
   $q$INSERT INTO monitors (user_id, name, url, url_normalized) VALUES (101, 'dup', 'https://example.com/health', 'https://example.com/health')$q$, '23505');
+SELECT pg_temp.expect_error('same user reuses a monitor name',
+  $q$INSERT INTO monitors (user_id, name, url, url_normalized) VALUES (101, 'api', 'https://new.test/', 'https://new.test/')$q$, '23505');
 SELECT pg_temp.expect_error('edit a monitor into a duplicate URL',
   $q$UPDATE monitors SET url_normalized = 'https://other.test/' WHERE id = 201$q$, '23505');
 SELECT pg_temp.expect_error('non-http URL',

@@ -51,7 +51,9 @@ CREATE TABLE monitors (
     CONSTRAINT monitors_current_status  CHECK (current_status IN ('unknown', 'up', 'down')),
     -- PRD R2: the same user cannot monitor the same URL twice. Different users may.
     -- Enforced by the database, so two concurrent creates/edits cannot both succeed.
-    CONSTRAINT monitors_user_url_uq UNIQUE (user_id, url_normalized)
+    CONSTRAINT monitors_user_url_uq UNIQUE (user_id, url_normalized),
+    -- API contract (PR #5): a user cannot have two monitors with the same name (409 DUPLICATE_MONITOR_NAME).
+    CONSTRAINT monitors_user_name_uq UNIQUE (user_id, name)
 );
 
 CREATE INDEX monitors_user_idx ON monitors (user_id);
