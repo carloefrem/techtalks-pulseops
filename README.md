@@ -44,7 +44,8 @@ Final requirements and incident rules must be confirmed in the approved PRD.
 ## 2. Project Links
 
 - Jira: https://pulseops-internship.atlassian.net/jira
-- Notion: [Add shared Notion workspace URL]
+- Notion PRD (v1.1, Draft): https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128
+- Notion TDD (template, not yet completed): https://www.notion.so/41b4cd9e492d8039a742d90d649d93b9
 - GitHub: This repository
 
 ## 3. Required Software
@@ -57,7 +58,7 @@ All developers should use Windows 10/11 and the following baseline.
 | Node.js | 24.22.3 | https://nodejs.org/dist/v24.22.3/ |
 | npm | 11.19.1 | Included with Node.js; update if needed |
 | Git | Team-agreed stable version | https://git-scm.com/install/windows |
-| PostgreSQL | 18.7 (team decision, same version for everyone) | https://www.postgresql.org/download/windows/ |
+| PostgreSQL | 18.7, same version for everyone (changed from 17.x by team decision on 18 Nov 2026, recorded on [PULSE-45](https://pulseops-internship.atlassian.net/browse/PULSE-45)) | https://www.postgresql.org/download/windows/ |
 | pgAdmin 4 | Compatible version | https://www.pgadmin.org/download/ |
 | Bruno | Latest stable | https://www.usebruno.com/downloads |
 | Chrome / Edge | Latest stable | Browser |
@@ -177,8 +178,8 @@ techtalks-pulseops/
 |---|---|---|---|
 | `README.md` | Exists | PULSE-22 / PULSE-50 | Overview and setup guide |
 | `.gitignore` | Exists | PULSE-22 | Excludes `.env*` (except `.env.example`), `node_modules/` and `dist/` |
-| `docs/database/` | In review (PR pending) | PULSE-25 | Database design: ERD, tables, indexes, `schema.sql` |
-| `docs/backend/` | In review (PR pending) | PULSE-67 | Backend folder structure, scripts and env plan |
+| `docs/database/` | In review ([PR #1](https://github.com/carloefrem/techtalks-pulseops/pull/1)) | PULSE-25 | Database design: ERD, tables, indexes, `schema.sql`, `verify.sql` |
+| `docs/backend/` | In review ([PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2)) | PULSE-67 | Backend folder structure, scripts and env plan |
 | `frontend/` | Planned | PULSE-27 | Created by the frontend setup (section 8) |
 | `backend/` | Planned | PULSE-28 | Created only after implementation is authorized (section 9) |
 | `.github/` | Planned | PULSE-22 | PR template and CI, if adopted |
@@ -193,6 +194,8 @@ The .nvmrc file should contain:
 ```
 
 ## 8. Initialize the Frontend
+
+> **Before running these commands:** implementation authorization for the frontend (PULSE-27) must be recorded in Jira. Until then, do not create the `frontend/` folder or install packages.
 
 Only the assigned setup pair should initialize the application.
 
@@ -210,6 +213,8 @@ npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
 Configure Tailwind and testing afterward.
 
 ## 9. Initialize the Backend
+
+> **Before running these commands:** implementation authorization for the backend (PULSE-28) must be recorded in Jira. Until then, do not create the `backend/` folder or install packages.
 
 Return to the repository root:
 
@@ -340,10 +345,10 @@ GitHub is the source of truth for code, reviews, and versioned technical configu
 
 | Document | Jira | Status |
 |---|---|---|
-| [Database design](docs/database/README.md) | PULSE-25 | In review |
-| [Backend structure and configuration plan](docs/backend/README.md) | PULSE-67 | In review |
-| PRD and MVP scope | PULSE-19 | Notion (link to be added) |
-| System architecture (TDD) | PULSE-24 | Notion (link to be added) |
+| Database design | PULSE-25 | Draft in review, changes requested; not approved. [PR #1](https://github.com/carloefrem/techtalks-pulseops/pull/1) |
+| Backend structure and configuration plan | PULSE-67 | Draft in review, changes requested; not approved. [PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2) |
+| [PRD and MVP scope](https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128) | PULSE-19 | Notion, v1.1 Draft; team review pending |
+| [System architecture (TDD)](https://www.notion.so/41b4cd9e492d8039a742d90d649d93b9) | PULSE-24 | Notion, template only; not yet completed |
 | REST API contract | PULSE-26 | To be added |
 
-The links above work once their pull requests are merged into `main`.
+The database and backend documents link to their pull requests while those are open. Once a PR is merged, change its link to the file on `main` (`docs/database/README.md`, `docs/backend/README.md`).
