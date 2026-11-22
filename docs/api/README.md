@@ -13,7 +13,7 @@
 
 ## 0. Implementation authorization
 
-This document is a contract only. It doesn't authorize any backend or frontend code. Implementation still waits for the authorization recorded in PULSE-27 / PULSE-28.
+This document is a contract only. Implementation authorization was recorded separately by Carlo (team lead) on Nov 21, 2026, in PULSE-27 (frontend) and PULSE-28 (backend), following the TechTalks instruction that all teams start implementation. The open questions in section 10 are follow-ups, not blockers.
 
 ---
 
@@ -365,8 +365,11 @@ Until PR #3 is merged, `main` tells new teammates to install 17 while the design
 | Q5 | Do we record a failure type (`timeout`, `dns`, `connection`, `http_status`) on each failed check? (Interview finding UN-2) | CheckResult, `check_results` | Gaelle, Mirla |
 | Q6 | Are notes allowed on resolved incidents? (This contract allows it) | Section 5.5 | Team |
 | Q7 | Is the duplicate-URL normalization in 6.3 acceptable? | C4 | Gaelle, Mirla |
-| Q8 | Rate limits for login and manual checks: values, and are they in Sprint 1 scope? | `429 RATE_LIMITED` | Majd |
+| Q8 | Rate limits for login and manual checks: values? Carlo's review (Nov 21) recommends implementing the manual-check `429` in the MVP, since each manual check is an outbound request that can block for up to 30 s | `429 RATE_LIMITED`, `POST /monitors/{id}/checks` | Majd |
 | Q9 | Dashboard refresh: polling every 30 s for the MVP, or something else? | Frontend (PULSE-27) | Gaelle, Majd |
+| Q10 | Deleting a monitor cascades to its checks, incidents and notes (section 5.3), but BR-05 says history stays visible after resolution. Keep the cascade for the MVP and note the limitation, or soft-delete/archive monitors? (Carlo's review: cascade is fine for the MVP if noted) | Section 5.3, C-table, PR #1 | Team |
+| Q11 | A paused monitor (`isActive=false`) is never checked again, so its open incident can never reach `currentStatus = up` and can't be resolved. Allow resolving when the monitor is paused, or require a manual check first? | Sections 5.5, 6.2, BR-04 | Carlo, Gaelle |
+| Q12 | With redirects not followed and `expectedStatus = null`, a 3xx (e.g. a redirect to a login or error page) counts as up. Treat 3xx as up only when `expectedStatus` says so, or document the limitation in the UI? | Sections 6.2, 6.4 | Gaelle, Majd |
 
 ## 11. Review checklist (PULSE-26 acceptance criteria)
 
