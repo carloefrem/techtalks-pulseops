@@ -9,13 +9,13 @@
 
 ## 0. Implementation authorization (required before any code)
 
-PULSE-27 says implementation authorization must be recorded before coding starts. Until this table is filled in, only this plan exists. No `frontend/` folder is created and no packages are installed.
+PULSE-27 says implementation authorization must be recorded before coding starts. It was recorded on Nov 21, 2026 (table below). Per that comment, coding on PULSE-65 / PULSE-72 starts once this PR is merged. Until then, only this plan exists: no `frontend/` folder is created and no packages are installed.
 
 | Item | Value |
 |---|---|
-| Approved by (name / role) | _pending_ |
-| Date | _pending_ |
-| Where it is recorded (Jira comment / Notion link) | _pending_ |
+| Approved by (name / role) | Carlo Efrem, team lead, following the TechTalks instruction (Nov 21) that all teams start implementation |
+| Date | 2026-11-21 |
+| Where it is recorded (Jira comment / Notion link) | Jira comment on [PULSE-27](https://pulseops-internship.atlassian.net/browse/PULSE-27); also Carlo's review comment on PR #6 |
 | Scope approved | Initialize `frontend/` as described below, including PULSE-65 (starter page) and PULSE-72 (health status and unavailable state) |
 
 ---
@@ -50,7 +50,6 @@ frontend/
 │   ├── hooks/                 # Shared hooks
 │   └── test/
 │       └── setup.ts           # Adds @testing-library/jest-dom matchers
-├── tests/                     # Or *.test.tsx next to each file (open question 4)
 ├── .env.example               # Placeholder values only (committed)
 ├── .env.local                 # Your own overrides (NOT committed; already in .gitignore)
 ├── package.json
@@ -82,7 +81,7 @@ These are the packages already listed in the root README section 8. No new ones 
 | `vitest`, `jsdom` | dev | Test runner and browser-like environment |
 | `@testing-library/react`, `@testing-library/jest-dom` | dev | Component tests |
 
-\* The root README installs `tailwindcss` and `@tailwindcss/vite` without `-D`. They're only needed at build time, so this plan puts them in `devDependencies`. Either way works; open question 5.
+\* The root README installs `tailwindcss` and `@tailwindcss/vite` without `-D`. They're only needed at build time, so this plan puts them in `devDependencies`. Decided: `devDependencies` (open question 5, resolved).
 
 Not planned for the MVP: a state-management library (Redux, Zustand), a data-fetching library (React Query), or a UI kit. They can be proposed later if the plain hooks get hard to manage.
 
@@ -198,11 +197,11 @@ If PowerShell blocks npm scripts, use `npm.cmd` instead, as the root README says
 
 ## 10. Open questions (for Mirla and the team)
 
-1. Who gives the implementation authorization in section 0, and where is it recorded? (Same question as PR #2 Q1; one answer for both.)
-2. **Track compliance:** the PRD lists the track as "React.js / Next.js", and the PRD's decision table asks whether the React + Express + PostgreSQL stack is track-compliant. This plan uses React with Vite, as the root README says. Does the team need to confirm that Vite (not Next.js) is acceptable?
+1. ~~Who gives the implementation authorization in section 0, and where is it recorded?~~ **Resolved (Nov 21):** Carlo (team lead), recorded in PULSE-27 and PULSE-28. See section 0.
+2. ~~**Track compliance:** is React with Vite (not Next.js) acceptable for the "React.js / Next.js" track?~~ **Resolved (Nov 21):** yes. The approved proposal is the React.js track, so React + Vite is fine (Carlo, PR #6 review).
 3. Should `npm create vite@latest` be pinned to a specific version, so the template doesn't change between now and initialization? The lockfile only pins packages after the project exists.
-4. Tests next to the file (`ApiStatus.test.tsx` beside `ApiStatus.tsx`) or in a separate `tests/` folder? This plan suggests next to the file. Pick one to match the backend.
-5. Tailwind packages in `dependencies` (root README) or `devDependencies` (this plan)?
+4. ~~Tests next to the file or in a separate `tests/` folder?~~ **Resolved (Nov 21):** next to the file (`ApiStatus.test.tsx` beside `ApiStatus.tsx`), the default this plan proposed (Carlo, PR #6 review).
+5. ~~Tailwind packages in `dependencies` or `devDependencies`?~~ **Resolved (Nov 21):** `devDependencies`, the default this plan proposed (Carlo, PR #6 review).
 6. Dashboard refresh: poll `GET /api/monitors` every 30 s while the page is open? (Also PULSE-26 Q9.)
 7. Is GitHub Actions CI (`typecheck` + `test` + `build`) in scope for Sprint 1? (Same as PR #2 Q4.)
 
@@ -210,6 +209,6 @@ If PowerShell blocks npm scripts, use `npm.cmd` instead, as the root README says
 
 - [x] Planned folders, dependencies and scripts are documented (sections 1, 2, 4)
 - [x] API base URL configuration is documented with placeholders only, no secrets (section 3)
-- [ ] Implementation authorization recorded (section 0)
+- [x] Implementation authorization recorded (section 0)
 - [ ] Mirla reviews this plan; the PR is linked in Jira
 - [ ] After authorization: a clean checkout installs from the lockfile and starts (PULSE-65), and Mirla reproduces it
