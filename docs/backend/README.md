@@ -1,6 +1,6 @@
 # PulseOps backend: structure and configuration plan (PULSE-67)
 
-**Status:** Plan, revision 2. Waiting for Majd's review. No backend code exists yet, and this document does not authorize implementation.
+**Status:** Plan, revision 2. Waiting for Majd's review. No backend code exists yet. Implementation was authorized on 21 Nov 2026 (section 0).
 **Author:** Mirla · **Reviewer:** Majd
 **Parent:** PULSE-28 (S1-09 Express backend foundation)
 **Follows:**
@@ -23,13 +23,13 @@
 
 ## 0. Implementation authorization (required before any code)
 
-PULSE-28 says implementation authorization must be recorded before coding starts. Until this table is filled in, only this plan exists. No `backend/` folder is created and no packages are installed.
+PULSE-28 says implementation authorization must be recorded before coding starts. It was recorded on 21 Nov 2026 (table below), so PULSE-68 and PULSE-69 can start. Open design questions (section 10) continue as follow-ups and are not blockers.
 
 | Item | Value |
 |---|---|
-| Approved by (name / role) | _pending_ |
-| Date | _pending_ |
-| Where it is recorded (Jira comment / Notion link) | _pending_ |
+| Approved by (name / role) | Carlo Efrem, team lead, following the TechTalks instruction (21 Nov) that all teams start implementation |
+| Date | 2026-11-21 |
+| Where it is recorded (Jira comment / Notion link) | Jira comment on [PULSE-28](https://pulseops-internship.atlassian.net/browse/PULSE-28) |
 | Scope approved | Initialize `backend/` as described below: PULSE-68 (server + health endpoint) and PULSE-69 (DB connection + first migration) |
 
 ## 1. Folder structure
@@ -286,7 +286,7 @@ The implementation should use a maintained IP-parsing library (for example `ipad
 
 | Decision | Status / owner |
 |---|---|
-| Who authorizes implementation, and where it is recorded (section 0) | Open |
+| Who authorizes implementation, and where it is recorded (section 0) | **Resolved:** Carlo, 21 Nov 2026, on PULSE-28 |
 | Authentication method (session cookie vs JWT in an httpOnly cookie) | Open (TDD) |
 | Worker process model and concurrency (inside the API process, or separate) | Open (PULSE-24, Majd). The claim and completion procedure works either way |
 | Response-time semantics when there is no HTTP response | Open (PRD; Carlo with Majd and Mirla) |
@@ -301,5 +301,5 @@ The implementation should use a maintained IP-parsing library (for example `ipad
 - [x] Server structure, scripts and example configuration are documented
 - [x] PostgreSQL 18.7 setup and `DATABASE_URL` / `TEST_DATABASE_URL` placeholders are documented; credentials stay out of Git
 - [x] Test isolation, clean-checkout sequence, build output and URL policy are specified
-- [ ] Implementation authorization recorded (section 0)
+- [x] Implementation authorization recorded (section 0)
 - [ ] Majd reviews this plan; the open decisions in section 10 are settled in the TDD
