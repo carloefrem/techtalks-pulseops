@@ -21,7 +21,7 @@ If PowerShell blocks npm scripts, use `npm.cmd` instead of `npm`.
 ## Tests
 
 ```powershell
-npm test                    # unit + API tests; the database tests are skipped
+npm test                    # all tests; database tests run only if TEST_DATABASE_URL is set in .env
 npm run db:test:prepare     # one time / after new migrations: migrates pulseops_test
 npm run test:db             # database tests (uses TEST_DATABASE_URL only)
 ```
@@ -40,7 +40,7 @@ After connecting, the tests also check that the server really is serving that `_
 | `npm run dev` | Start with auto-restart on save |
 | `npm run build` / `npm start` | Compile `src/` to `dist/` / run `dist/server.js` |
 | `npm run typecheck` | Type errors in `src/`, `scripts/` and `tests/` |
-| `npm test` | All tests except the database ones |
+| `npm test` | All tests (database tests are skipped when `TEST_DATABASE_URL` is not set) |
 | `npm run test:db` | Database connectivity tests (needs `TEST_DATABASE_URL`) |
 | `npm run db:generate` | Generate Prisma Client into `src/generated/` (not committed) |
 | `npm run db:deploy` | Apply committed migrations to `DATABASE_URL` |
