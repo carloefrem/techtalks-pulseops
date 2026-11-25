@@ -1,14 +1,15 @@
-/** One entry of the `details` array in the shared error shape (docs/api/README.md section 1). */
+/**
+ * An error the API sends to the client on purpose, in the shared shape from
+ * docs/api/README.md section 1:
+ *   { "error": { "code", "message", "details": [{ "field", "message" }] } }
+ * errorHandler.ts turns it into the JSON response. Anything that is not an
+ * ApiError becomes a generic 500 INTERNAL_ERROR.
+ */
 export interface ErrorDetail {
   field: string;
   message: string;
 }
 
-/**
- * An error the API reports to the client as-is, using the shared JSON shape:
- * `{ error: { code, message, details } }`. errorHandler.ts turns it into the response.
- * Anything that is not an ApiError becomes a generic 500.
- */
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;

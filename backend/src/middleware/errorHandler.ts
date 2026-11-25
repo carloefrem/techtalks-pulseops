@@ -12,7 +12,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     return;
   }
 
-  // Errors the API raises on purpose (e.g. 400 UNSAFE_URL) keep their status, code and details.
+  // Errors the API raises on purpose (validation, auth, conflicts...).
   if (err instanceof ApiError) {
     res.status(err.status).json({ error: { code: err.code, message: err.message, details: err.details } });
     return;
