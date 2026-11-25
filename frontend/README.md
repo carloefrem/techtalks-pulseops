@@ -46,13 +46,23 @@ Run `npm test` and `npm run build` before opening a PR.
 ```text
 src/
 ├── main.tsx              Entry: <App /> inside BrowserRouter
-├── App.tsx               Routes: "/" and a not-found page
+├── App.tsx               Routes: public (/, /login, /register) and protected (/dashboard)
 ├── config/env.ts         Reads and checks VITE_API_BASE_URL
-├── api/client.ts         The only place that calls fetch (timeout, credentials, ApiError)
+├── api/client.ts         The only place that calls fetch (timeout, credentials, ApiError, 401 handler)
 ├── api/health.ts         GET /api/health → online / unavailable / unexpected
-├── components/           ApiStatus, StatusBadge
-├── pages/                HomePage, NotFoundPage
-└── test/setup.ts         jest-dom matchers
+├── api/auth.ts           register, login, logout, getCurrentUser (/api/auth/*)
+├── auth/                 AuthProvider + useAuth, ProtectedRoute, error-code messages
+├── components/           ApiStatus, StatusBadge, AppLayout (header + logout), forms/
+├── pages/                Home, Login, Register, Dashboard (placeholder), NotFound
+└── test/                 jest-dom setup, fakeApi (fake backend), renderApp
 ```
 
 Tests sit next to the file they test (`ApiStatus.test.tsx` beside `ApiStatus.tsx`).
+
+## Sign-in (PULSE-88)
+
+- The session lives only in the backend's `HttpOnly` `pulseops_session` cookie. The frontend sends it with `credentials: "include"` and never stores a token.
+- On start, `AuthProvider` calls `GET /api/auth/me`. `ProtectedRoute` sends a signed-out user (401) to `/login` and back to the page they wanted after signing in. If the API can't be reached, it shows "API unavailable" with **Retry** instead of pretending the user is signed out.
+- Any later `401 UNAUTHENTICATED` (e.g. an expired session) signs the user out locally and redirects to `/login`.
+- Form messages are chosen by the API error `code` (`VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `EMAIL_TAKEN`, `RATE_LIMITED`), never by the English `message`.
+- Until the auth API (PULSE-87) is merged, `/login` and `/register` show "API unavailable" against the real backend; the tests use a fake backend (`src/test/fakeApi.ts`).
