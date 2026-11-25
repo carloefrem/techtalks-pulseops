@@ -9,7 +9,7 @@ If PowerShell blocks npm scripts, use `npm.cmd` instead of `npm`.
 1. In pgAdmin, create two databases on your PostgreSQL 18.7: `pulseops_dev` and `pulseops_test`.
 2. From `backend/`:
    ```powershell
-   Copy-Item .env.example .env   # then put YOUR user/password in DATABASE_URL and TEST_DATABASE_URL
+   Copy-Item .env.example .env   # then put YOUR user/password in DATABASE_URL and TEST_DATABASE_URL, and set JWT_SECRET (see below)
    npm ci
    npm run db:generate           # required: generates Prisma Client (npm ci does not)
    npm run db:deploy             # creates the tables in pulseops_dev
@@ -41,7 +41,7 @@ After connecting, the tests also check that the server really is serving that `_
 | `npm run build` / `npm start` | Compile `src/` to `dist/` / run `dist/server.js` |
 | `npm run typecheck` | Type errors in `src/`, `scripts/` and `tests/` |
 | `npm test` | All tests (database tests are skipped when `TEST_DATABASE_URL` is not set) |
-| `npm run test:db` | Database connectivity tests (needs `TEST_DATABASE_URL`) |
+| `npm run test:db` | Database tests: connectivity and the auth user store (needs `TEST_DATABASE_URL`) |
 | `npm run db:generate` | Generate Prisma Client into `src/generated/` (not committed) |
 | `npm run db:deploy` | Apply committed migrations to `DATABASE_URL` |
 | `npm run db:migrate` | Create a new migration in development (read the generated SQL before committing) |
@@ -58,6 +58,7 @@ After connecting, the tests also check that the server really is serving that `_
 | `FRONTEND_ORIGIN` | yes | the only origin allowed by CORS |
 | `DATABASE_URL` | yes | your `pulseops_dev` database |
 | `TEST_DATABASE_URL` | tests only | your `pulseops_test` database |
+| `JWT_SECRET` | yes | signs login sessions; at least 32 random characters. Generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
 
 Never commit `.env`. It is already in `.gitignore`.
 
@@ -74,5 +75,11 @@ Never commit `.env`. It is already in `.gitignore`.
 | Method | Path | Response |
 |---|---|---|
 | GET | `/api/health` | `200 {"status":"ok"}`. Does not touch the database |
+| POST | `/api/auth/register` | `201 {"user":{...}}` and sets the session cookie. `409 EMAIL_TAKEN`, `400 VALIDATION_ERROR` |
+| POST | `/api/auth/login` | `200 {"user":{...}}` and sets the session cookie. `401 INVALID_CREDENTIALS` |
+| POST | `/api/auth/logout` | `204`, clears the session cookie |
+| GET | `/api/auth/me` | `200 {"user":{...}}`, or `401 UNAUTHENTICATED` without a valid session |
+
+**Sessions (PULSE-87):** a signed JWT (HS256, 7 days) in the `pulseops_session` cookie: `HttpOnly`, `SameSite=Lax`, `Path=/api`, and `Secure` in production. The frontend never reads it; it only sends requests with `credentials: "include"`. Protected routes use `requireAuth`, which puts the user's ID in `res.locals.userId`.
 
 Unknown routes return `404 {"error":{"code":"NOT_FOUND",...}}`, and malformed JSON returns `400 INVALID_JSON`.
