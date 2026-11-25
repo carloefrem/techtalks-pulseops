@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react'
+import { Button } from './ui/Button'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getHealth, type HealthResult } from '../api/health'
 import { env } from '../config/env'
@@ -63,14 +64,10 @@ export function ApiStatus({ apiBaseUrl = env.apiBaseUrl }: { apiBaseUrl?: string
           <p>
             API base URL: <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-800">{apiBaseUrl}</code>
           </p>
-          <button
-            type="button"
-            onClick={retry}
-            className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-          >
+          <Button size="sm" onClick={retry}>
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
             Retry
-          </button>
+          </Button>
         </div>
       )}
     </section>

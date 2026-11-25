@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react'
+import { Button } from '../components/ui/Button'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { API_UNAVAILABLE_MESSAGE } from './authErrors'
 import type { FromState } from './redirect'
@@ -26,14 +27,10 @@ export function ProtectedRoute() {
     return (
       <div role="alert" className="mx-auto max-w-4xl space-y-3 px-4 py-12 text-slate-700">
         <p>{API_UNAVAILABLE_MESSAGE}</p>
-        <button
-          type="button"
-          onClick={auth.refresh}
-          className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-        >
+        <Button size="sm" onClick={auth.refresh}>
           <RefreshCw aria-hidden="true" className="h-4 w-4" />
           Retry
-        </button>
+        </Button>
       </div>
     )
   }
