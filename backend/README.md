@@ -63,7 +63,7 @@ Never commit `.env`. It is already in `.gitignore`.
 
 ## Database and migrations
 
-- The first migration (`prisma/migrations/20261122000000_init`) is `docs/database/schema.sql` from PR #1, copied verbatim. It's hand-written because Prisma can't express the CHECK constraints, partial indexes and the `ON DELETE SET NULL (first_check_id)` foreign key.
+- The first migration (`prisma/migrations/20261122000000_init`) is `docs/database/schema.sql` from PR #1, copied verbatim. The only difference since then is one comment on `incidents.severity` in `schema.sql` (updated in PULSE-112; the column and its CHECK constraint are unchanged). Merged migrations are never edited, so the migration keeps the old comment. It's hand-written because Prisma can't express the CHECK constraints, partial indexes and the `ON DELETE SET NULL (first_check_id)` foreign key.
 - `prisma/schema.prisma` describes the same tables for Prisma Client. On a freshly migrated database,
   `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script` prints `This is an empty migration.` (no drift).
 - Prisma and `@prisma/client` are pinned to **7.10.1**. Upgrades get their own PR.
