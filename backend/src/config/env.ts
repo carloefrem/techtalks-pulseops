@@ -12,6 +12,8 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "must start with postgresql://"),
   // Signs the session JWT (PULSE-87). Long and random; different per environment; never committed.
   JWT_SECRET: z.string().min(32, "must be at least 32 characters (generate one, see backend/README.md)"),
+  // Reverse proxies in front of the API (0 locally; usually 1 on a hosting platform). Rate limits use the client IP.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

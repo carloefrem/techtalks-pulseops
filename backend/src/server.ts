@@ -16,6 +16,7 @@ const prisma = createPrisma(env.DATABASE_URL);
 
 const app = createApp({
   frontendOrigin: env.FRONTEND_ORIGIN,
+  trustProxy: env.TRUST_PROXY,
   auth: {
     users: new PrismaUserRepository(prisma),
     session: { jwtSecret: env.JWT_SECRET, secureCookies: env.NODE_ENV === "production" },

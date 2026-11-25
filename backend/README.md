@@ -58,9 +58,17 @@ After connecting, the tests also check that the server really is serving that `_
 | `FRONTEND_ORIGIN` | yes | the only origin allowed by CORS |
 | `DATABASE_URL` | yes | your `pulseops_dev` database |
 | `TEST_DATABASE_URL` | tests only | your `pulseops_test` database |
+| `TRUST_PROXY` | no | default `0`. Number of reverse proxies in front of the API; set `1` when deployed behind a host's proxy so rate limits see real client IPs |
 | `JWT_SECRET` | yes | signs login sessions; at least 32 random characters. Generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
 
 Never commit `.env`. It is already in `.gitignore`.
+
+## Security (PULSE-111)
+
+- **Headers:** `helmet` with a strict CSP (`default-src 'none'`), since the API serves only JSON. No `X-Powered-By`.
+- **CORS:** only `FRONTEND_ORIGIN` gets `Access-Control-*` headers (with credentials). Any other origin gets none.
+- **Body size:** JSON bodies over 100 kb get `413 PAYLOAD_TOO_LARGE`.
+- **Rate limits:** `POST /api/auth/login` and `/register` share 10 requests per 15 minutes per client IP, then `429 RATE_LIMITED` with `Retry-After`. `manualCheckRateLimiter()` (6 per minute per signed-in user) is ready for `POST /api/monitors/:id/checks` (PULSE-92): mount it after `requireAuth`.
 
 ## Database and migrations
 

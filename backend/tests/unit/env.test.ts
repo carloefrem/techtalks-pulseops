@@ -32,6 +32,12 @@ describe("loadEnv", () => {
     expect(() => loadEnv({ ...valid, JWT_SECRET: "short" })).toThrow(/JWT_SECRET/);
   });
 
+  it("defaults TRUST_PROXY to 0 and reads it as a number", () => {
+    expect(loadEnv(valid).TRUST_PROXY).toBe(0);
+    expect(loadEnv({ ...valid, TRUST_PROXY: "1" }).TRUST_PROXY).toBe(1);
+    expect(() => loadEnv({ ...valid, TRUST_PROXY: "-1" })).toThrow(/TRUST_PROXY/);
+  });
+
   it("rejects an invalid PORT", () => {
     expect(() => loadEnv({ ...valid, PORT: "abc" })).toThrow(/PORT/);
   });
