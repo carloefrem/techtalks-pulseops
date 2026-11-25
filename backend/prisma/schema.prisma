@@ -1,0 +1,119 @@
+// PulseOps Prisma schema (PULSE-69).
+// The database itself is created by the hand-written migration in
+// prisma/migrations/20261122000000_init, which copies docs/database/schema.sql (PR #1).
+// This file describes the same tables so Prisma Client can be generated.
+//
+// Not representable here, so it exists ONLY in the migration SQL:
+//   - every CHECK constraint
+//   - users_email_lower_uq (unique index on lower(email))
+//   - partial indexes: monitors_due_idx, incidents_one_open_per_monitor_uq, incidents_first_check_idx
+//   - the column list in ON DELETE SET NULL (first_check_id) on the composite FK
+//     incidents(monitor_id, first_check_id) -> check_results(monitor_id, id).
+//     The FK is declared below (Incident.firstCheck) so Prisma does not try to drop it;
+//     Prisma warns about SetNull on a required field, but the database only nulls first_check_id.
+//   - check_results.is_up GENERATED ALWAYS AS (outcome = 'up') STORED (never write it)
+// Change the database by adding a new migration, never by editing a merged one.
+// After `npm run db:migrate`, ALWAYS read the generated migration.sql before committing:
+// it must not drop any of the objects listed above.
+// Parity check: `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`
+// on a freshly migrated database must print "This is an empty migration."
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           BigInt    @id @default(autoincrement())
+  email        String    @db.VarChar(254)
+  passwordHash String    @map("password_hash")
+  displayName  String?   @map("display_name") @db.VarChar(100)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  monitors     Monitor[]
+
+  @@map("users")
+}
+
+model Monitor {
+  id              BigInt        @id @default(autoincrement())
+  userId          BigInt        @map("user_id")
+  name            String        @db.VarChar(100)
+  url             String
+  urlNormalized   String        @map("url_normalized")
+  httpMethod      String        @default("GET") @map("http_method") @db.VarChar(4)
+  intervalSeconds Int           @default(300) @map("interval_seconds")
+  timeoutMs       Int           @default(10000) @map("timeout_ms")
+  expectedStatus  Int?          @map("expected_status") @db.SmallInt
+  isActive        Boolean       @default(true) @map("is_active")
+  currentStatus   String        @default("unknown") @map("current_status") @db.VarChar(7)
+  lastCheckedAt   DateTime?     @map("last_checked_at") @db.Timestamptz
+  nextCheckAt     DateTime      @default(now()) @map("next_check_at") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @map("updated_at") @db.Timestamptz
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  checkResults    CheckResult[]
+  incidents       Incident[]
+
+  @@unique([userId, urlNormalized], map: "monitors_user_url_uq")
+  @@unique([userId, name], map: "monitors_user_name_uq")
+  @@index([userId], map: "monitors_user_idx")
+  @@map("monitors")
+}
+
+model CheckResult {
+  id             BigInt   @id @default(autoincrement())
+  monitorId      BigInt   @map("monitor_id")
+  trigger        String   @db.VarChar(9)
+  checkedAt      DateTime @map("checked_at") @db.Timestamptz
+  outcome        String   @db.VarChar(16)
+  isUp           Boolean? @default(dbgenerated()) @map("is_up") // generated column: read only
+  httpStatus     Int?     @map("http_status") @db.SmallInt
+  durationMs     Int      @map("duration_ms")
+  responseTimeMs Int?     @map("response_time_ms")
+  errorMessage   String?  @map("error_message") @db.VarChar(500)
+  monitor        Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  firstOf        Incident[] @relation("IncidentFirstCheck")
+
+  @@unique([monitorId, id], map: "check_results_monitor_id_uq")
+  @@index([monitorId, checkedAt(sort: Desc)], map: "check_results_monitor_time_idx")
+  @@index([checkedAt], map: "check_results_checked_at_idx")
+  @@map("check_results")
+}
+
+model Incident {
+  id           BigInt         @id @default(autoincrement())
+  monitorId    BigInt         @map("monitor_id")
+  status       String         @default("open") @db.VarChar(8)
+  severity     String         @db.VarChar(8)
+  startedAt    DateTime       @map("started_at") @db.Timestamptz
+  firstCheckId BigInt?        @map("first_check_id")
+  firstCheck   CheckResult?   @relation("IncidentFirstCheck", fields: [monitorId, firstCheckId], references: [monitorId, id], onDelete: SetNull, onUpdate: NoAction, map: "incidents_first_check_same_monitor_fk")
+  cause        String?        @db.VarChar(500)
+  recoveredAt  DateTime?      @map("recovered_at") @db.Timestamptz
+  resolvedAt   DateTime?      @map("resolved_at") @db.Timestamptz
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime       @default(now()) @map("updated_at") @db.Timestamptz
+  monitor      Monitor        @relation(fields: [monitorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  notes        IncidentNote[]
+
+  @@index([monitorId, startedAt(sort: Desc)], map: "incidents_monitor_started_idx")
+  @@map("incidents")
+}
+
+model IncidentNote {
+  id         BigInt   @id @default(autoincrement())
+  incidentId BigInt   @map("incident_id")
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([incidentId, createdAt], map: "incident_notes_incident_idx")
+  @@map("incident_notes")
+}

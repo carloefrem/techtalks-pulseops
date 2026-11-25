@@ -8,6 +8,25 @@ API Uptime Monitoring & Incident Tracking Platform
 **Team:** Carlo, Gaelle, Mirla, Majd  
 **Status:** Initial setup and planning
 
+## Contents
+
+1. [Project Overview](#1-project-overview)
+2. [Project Links](#2-project-links)
+3. [Required Software](#3-required-software)
+4. [Verify Installed Software](#4-verify-installed-software)
+5. [VS Code Extensions](#5-vs-code-extensions)
+6. [Planned Technology Stack](#6-planned-technology-stack)
+7. [Repository Structure](#7-repository-structure)
+8. [Initialize the Frontend](#8-initialize-the-frontend)
+9. [Initialize the Backend](#9-initialize-the-backend)
+10. [Install Dependencies on Other Computers](#10-install-dependencies-on-other-computers)
+11. [PostgreSQL Setup](#11-postgresql-setup)
+12. [Environment Variables](#12-environment-variables)
+13. [GitHub Workflow](#13-github-workflow)
+14. [Setup Checklist](#14-setup-checklist)
+15. [Project Security](#15-project-security)
+16. [Documentation](#16-documentation)
+
 ## 1. Project Overview
 
 PulseOps is a web application designed to help developers monitor HTTP APIs, track response times, detect failures, and view incidents through a dashboard.
@@ -25,7 +44,8 @@ Final requirements and incident rules must be confirmed in the approved PRD.
 ## 2. Project Links
 
 - Jira: https://pulseops-internship.atlassian.net/jira
-- Notion: [Add shared Notion workspace URL]
+- Notion PRD (v1.1, Draft): https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128
+- Notion TDD (template, not yet completed): https://www.notion.so/41b4cd9e492d8039a742d90d649d93b9
 - GitHub: This repository
 
 ## 3. Required Software
@@ -38,7 +58,7 @@ All developers should use Windows 10/11 and the following baseline.
 | Node.js | 24.22.3 | https://nodejs.org/dist/v24.22.3/ |
 | npm | 11.19.1 | Included with Node.js; update if needed |
 | Git | Team-agreed stable version | https://git-scm.com/install/windows |
-| PostgreSQL | 17.x, same patch release | https://www.postgresql.org/download/windows/ |
+| PostgreSQL | 18.7, same version for everyone (changed from 17.x by team decision on 18 Nov 2026, recorded on [PULSE-45](https://pulseops-internship.atlassian.net/browse/PULSE-45)) | https://www.postgresql.org/download/windows/ |
 | pgAdmin 4 | Compatible version | https://www.pgadmin.org/download/ |
 | Bruno | Latest stable | https://www.usebruno.com/downloads |
 | Chrome / Edge | Latest stable | Browser |
@@ -128,7 +148,7 @@ Optional:
 - dotenv
 
 ### Database
-- PostgreSQL 17
+- PostgreSQL 18.7
 - Prisma ORM
 
 ### Testing
@@ -141,18 +161,31 @@ Exact npm package versions will be committed in package-lock.json after initiali
 
 Do not install React, Express, Prisma, or TypeScript globally.
 
-## 7. Planned Repository Structure
+## 7. Repository Structure
 
 ```text
 techtalks-pulseops/
-├── frontend/
-├── backend/
-├── docs/
-├── .github/
-├── .nvmrc
+├── frontend/      # React app
+├── backend/       # Express API, Prisma schema and migrations
+├── docs/          # Technical design documents
+├── .github/       # PR template and CI workflows
+├── .nvmrc         # Node.js version
 ├── .gitignore
 └── README.md
 ```
+
+| Path | Status | Owner task | Notes |
+|---|---|---|---|
+| `README.md` | Exists | PULSE-22 / PULSE-50 | Overview and setup guide |
+| `.gitignore` | Exists | PULSE-22 | Excludes `.env*` (except `.env.example`), `node_modules/` and `dist/` |
+| `docs/database/` | In review ([PR #1](https://github.com/carloefrem/techtalks-pulseops/pull/1)) | PULSE-25 | Database design: ERD, tables, indexes, `schema.sql`, `verify.sql` |
+| `docs/backend/` | In review ([PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2)) | PULSE-67 | Backend folder structure, scripts and env plan |
+| `frontend/` | Planned | PULSE-27 | Created by the frontend setup (section 8) |
+| `backend/` | Planned | PULSE-28 | Created by the backend setup (section 9); implementation authorized 21 Nov 2026 |
+| `.github/` | Planned | PULSE-22 | PR template and CI, if adopted |
+| `.nvmrc` | Planned | PULSE-22 | See below |
+
+Update the **Status** column in the same PR that adds or removes a folder.
 
 The .nvmrc file should contain:
 
@@ -161,6 +194,8 @@ The .nvmrc file should contain:
 ```
 
 ## 8. Initialize the Frontend
+
+> **Before running these commands:** implementation authorization for the frontend (PULSE-27) must be recorded in Jira. **Recorded 21 Nov 2026** by Carlo on [PULSE-27](https://pulseops-internship.atlassian.net/browse/PULSE-27); initialization starts once the frontend plan (PR #6) is merged.
 
 Only the assigned setup pair should initialize the application.
 
@@ -178,6 +213,8 @@ npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
 Configure Tailwind and testing afterward.
 
 ## 9. Initialize the Backend
+
+> **Before running these commands:** implementation authorization for the backend (PULSE-28) must be recorded in Jira. **Recorded 21 Nov 2026** by Carlo on [PULSE-28](https://pulseops-internship.atlassian.net/browse/PULSE-28).
 
 Return to the repository root:
 
@@ -225,7 +262,7 @@ Do not run these commands until the frontend and backend folders exist.
 
 ## 11. PostgreSQL Setup
 
-1. Install PostgreSQL 17.
+1. Install PostgreSQL 18.7.
 2. Install or open pgAdmin 4.
 3. Connect to the local PostgreSQL server.
 4. Create a database named `pulseops_dev`.
@@ -275,7 +312,7 @@ Everyone must contribute to multiple areas of the application, including fronten
 - [ ] Node.js 24.22.3 verified
 - [ ] npm 11.19.1 verified
 - [ ] Git installed and configured
-- [ ] PostgreSQL 17 installed
+- [ ] PostgreSQL 18.7 installed
 - [ ] pgAdmin working
 - [ ] Bruno installed
 - [ ] GitHub repository access confirmed
@@ -303,3 +340,15 @@ Product requirements and technical decisions are maintained in the shared Notion
 Jira is the source of truth for assigned tasks, sprint progress, and acceptance criteria.
 
 GitHub is the source of truth for code, reviews, and versioned technical configuration.
+
+### Technical documents in this repository
+
+| Document | Jira | Status |
+|---|---|---|
+| Database design | PULSE-25 | Draft in review, changes requested; not approved. [PR #1](https://github.com/carloefrem/techtalks-pulseops/pull/1) |
+| Backend structure and configuration plan | PULSE-67 | Draft in review, changes requested; not approved. [PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2) |
+| [PRD and MVP scope](https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128) | PULSE-19 | Notion, v1.1 Draft; team review pending |
+| [System architecture (TDD)](https://www.notion.so/41b4cd9e492d8039a742d90d649d93b9) | PULSE-24 | Notion, template only; not yet completed |
+| REST API contract | PULSE-26 | To be added |
+
+The database and backend documents link to their pull requests while those are open. Once a PR is merged, change its link to the file on `main` (`docs/database/README.md`, `docs/backend/README.md`).

@@ -1,0 +1,965 @@
+openapi: 3.0.3
+info:
+  title: PulseOps API
+  version: 0.1.0-draft
+  description: |
+    REST API contract for the PulseOps MVP (PULSE-26). Draft for review by Majd.
+    The human-readable version, with conflicts and open questions, is docs/api/README.md.
+
+    - Every route is under /api. JSON only.
+    - IDs are strings (the database uses BIGINT).
+    - Timestamps are ISO 8601 in UTC.
+    - Another user's resource returns 404 NOT_FOUND, never 403.
+    - Fields marked [Proposal] need a team decision (README section 10).
+servers:
+  - url: http://localhost:3001/api
+    description: Local backend (PORT=3001)
+tags:
+  - name: Health
+  - name: Auth
+  - name: Monitors
+  - name: Checks
+  - name: Incidents
+security:
+  - sessionCookie: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Service is running
+      description: Does not call the database (PULSE-68).
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Create an account and sign in
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              email: dev@example.com
+              password: correct-horse-battery
+              displayName: Dev
+      responses:
+        "201":
+          description: Account created. Sets the pulseops_session cookie.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetSessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Email already registered (EMAIL_TAKEN)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: EMAIL_TAKEN
+                  message: An account with this email already exists
+                  details: []
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: dev@example.com
+              password: correct-horse-battery
+      responses:
+        "200":
+          description: Signed in. Sets the pulseops_session cookie.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetSessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: Wrong email or password (INVALID_CREDENTIALS). Same message for both.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: INVALID_CREDENTIALS
+                  message: Email or password is incorrect
+                  details: []
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out
+      operationId: logout
+      responses:
+        "204":
+          description: Signed out. Clears the cookie.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      operationId: getMe
+      responses:
+        "200":
+          description: The signed-in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+  /monitors:
+    get:
+      tags: [Monitors]
+      summary: List my monitors (dashboard)
+      description: Ordered by name. Each item includes its latest check. No pagination for the MVP.
+      operationId: listMonitors
+      responses:
+        "200":
+          description: My monitors
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [monitors]
+                properties:
+                  monitors:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Monitor"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Monitors]
+      summary: Add a monitor
+      operationId: createMonitor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMonitorRequest"
+            example:
+              name: Payments API
+              url: https://api.example.com/health
+              httpMethod: GET
+              intervalSeconds: 300
+              timeoutMs: 10000
+              expectedStatus: null
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitorResponse"
+        "400":
+          $ref: "#/components/responses/BadMonitorInput"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/MonitorConflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /monitors/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Monitors]
+      summary: One monitor
+      operationId: getMonitor
+      responses:
+        "200":
+          description: The monitor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Monitors]
+      summary: Edit a monitor (partial update)
+      operationId: updateMonitor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMonitorRequest"
+            example:
+              intervalSeconds: 60
+              isActive: true
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitorResponse"
+        "400":
+          $ref: "#/components/responses/BadMonitorInput"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/MonitorConflict"
+    delete:
+      tags: [Monitors]
+      summary: Delete a monitor and its checks, incidents and notes
+      operationId: deleteMonitor
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /monitors/{id}/checks:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Checks]
+      summary: Check history, newest first
+      operationId: listChecks
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Before"
+      responses:
+        "200":
+          description: A page of checks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checks, nextBefore]
+                properties:
+                  checks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CheckResult"
+                  nextBefore:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: Pass as `before` to get the next page. null when there are no more.
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Checks]
+      summary: Run a manual check now
+      description: |
+        Uses the same rules as the scheduled worker. Waits for the result (at most timeoutMs).
+        A failed manual check opens an incident the same way a scheduled one does.
+      operationId: runCheck
+      responses:
+        "201":
+          description: Check recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [check, monitor]
+                properties:
+                  check:
+                    $ref: "#/components/schemas/CheckResult"
+                  monitor:
+                    $ref: "#/components/schemas/Monitor"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /incidents:
+    get:
+      tags: [Incidents]
+      summary: List my incidents, newest first
+      operationId: listIncidents
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, resolved]
+        - name: monitorId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Id"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Before"
+      responses:
+        "200":
+          description: A page of incidents (without notes)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [incidents, nextBefore]
+                properties:
+                  incidents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/IncidentSummary"
+                  nextBefore:
+                    type: string
+                    format: date-time
+                    nullable: true
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+  /incidents/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Incidents]
+      summary: One incident with its notes
+      operationId: getIncident
+      responses:
+        "200":
+          description: The incident
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [incident]
+                properties:
+                  incident:
+                    $ref: "#/components/schemas/Incident"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /incidents/{id}/notes:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Incidents]
+      summary: Add a note to an incident
+      operationId: addIncidentNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                  description: Trimmed before saving.
+            example:
+              body: Upstream DB restarted at 09:04.
+      responses:
+        "201":
+          description: Note saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [note]
+                properties:
+                  note:
+                    $ref: "#/components/schemas/IncidentNote"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /incidents/{id}/resolve:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Incidents]
+      summary: Mark an incident as resolved (BR-04)
+      description: Allowed only when the monitor's currentStatus is `up`. Checks never resolve incidents on their own.
+      operationId: resolveIncident
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [incident]
+                properties:
+                  incident:
+                    $ref: "#/components/schemas/Incident"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: MONITOR_STILL_DOWN or INCIDENT_ALREADY_RESOLVED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                stillDown:
+                  value:
+                    error:
+                      code: MONITOR_STILL_DOWN
+                      message: The endpoint is still failing. Resolve the incident after it recovers.
+                      details: []
+                alreadyResolved:
+                  value:
+                    error:
+                      code: INCIDENT_ALREADY_RESOLVED
+                      message: This incident is already resolved
+                      details: []
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: pulseops_session
+      description: "[Proposal] httpOnly cookie set by register/login. JWT vs server session is still open (README Q1)."
+
+  headers:
+    SetSessionCookie:
+      description: pulseops_session=...; HttpOnly; SameSite=Lax; Path=/api (plus Secure in production)
+      schema:
+        type: string
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: Numeric ID as a string. A malformed ID returns 404, like a missing one.
+      schema:
+        $ref: "#/components/schemas/Id"
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 50
+    Before:
+      name: before
+      in: query
+      required: false
+      description: Return items older than this timestamp (cursor from nextBefore).
+      schema:
+        type: string
+        format: date-time
+
+  responses:
+    ValidationError:
+      description: Invalid body or query (VALIDATION_ERROR). A malformed ID returns 404 NOT_FOUND instead.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Request is invalid
+              details:
+                - field: password
+                  message: must be at least 8 characters
+    BadMonitorInput:
+      description: VALIDATION_ERROR or UNSAFE_URL (BR-02)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            validation:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Request is invalid
+                  details:
+                    - field: url
+                      message: must start with http:// or https://
+            unsafe:
+              value:
+                error:
+                  code: UNSAFE_URL
+                  message: This URL points to a private or internal address and can't be monitored
+                  details:
+                    - field: url
+                      message: resolves to a private address
+    MonitorConflict:
+      description: DUPLICATE_MONITOR_NAME or DUPLICATE_MONITOR_URL
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            duplicateUrl:
+              value:
+                error:
+                  code: DUPLICATE_MONITOR_URL
+                  message: You already monitor this URL
+                  details:
+                    - field: url
+                      message: already monitored by "Payments API"
+            duplicateName:
+              value:
+                error:
+                  code: DUPLICATE_MONITOR_NAME
+                  message: You already have a monitor with this name
+                  details:
+                    - field: name
+                      message: already used
+    Unauthenticated:
+      description: Not signed in (UNAUTHENTICATED)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: Please sign in
+              details: []
+    NotFound:
+      description: Doesn't exist, belongs to another user, or the ID is malformed (NOT_FOUND)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: NOT_FOUND
+              message: Not found
+              details: []
+    RateLimited:
+      description: "[Proposal] Too many requests (RATE_LIMITED)"
+      headers:
+        Retry-After:
+          description: Seconds to wait
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: RATE_LIMITED
+              message: Too many requests. Try again shortly.
+              details: []
+    InternalError:
+      description: Unexpected error (INTERNAL_ERROR). Details are only logged on the server.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: Something went wrong
+              details: []
+
+  schemas:
+    Id:
+      type: string
+      pattern: "^[1-9][0-9]{0,18}$"
+      example: "42"
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - UNSAFE_URL
+                - UNAUTHENTICATED
+                - INVALID_CREDENTIALS
+                - NOT_FOUND
+                - ROUTE_NOT_FOUND
+                - EMAIL_TAKEN
+                - DUPLICATE_MONITOR_NAME
+                - DUPLICATE_MONITOR_URL
+                - MONITOR_STILL_DOWN
+                - INCIDENT_ALREADY_RESOLVED
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                required: [message]
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    User:
+      type: object
+      required: [id, email, displayName, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    UserResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+
+    CreateMonitorRequest:
+      type: object
+      additionalProperties: false
+      required: [name, url]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: http(s) only, no credentials in the URL, must pass the safety check (README 6.4). Stored and returned as typed; the normalized form (README 6.3) is used only for the duplicate check.
+        httpMethod:
+          type: string
+          enum: [GET, HEAD]
+          default: GET
+        intervalSeconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          default: 300
+        timeoutMs:
+          type: integer
+          minimum: 1000
+          maximum: 30000
+          default: 10000
+        expectedStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+          nullable: true
+          description: null means any 2xx/3xx counts as up.
+
+    UpdateMonitorRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        httpMethod:
+          type: string
+          enum: [GET, HEAD]
+        intervalSeconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+        timeoutMs:
+          type: integer
+          minimum: 1000
+          maximum: 30000
+        expectedStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+          nullable: true
+        isActive:
+          type: boolean
+
+    Monitor:
+      type: object
+      required:
+        - id
+        - name
+        - url
+        - httpMethod
+        - intervalSeconds
+        - timeoutMs
+        - expectedStatus
+        - isActive
+        - currentStatus
+        - lastCheckedAt
+        - nextCheckAt
+        - latestCheck
+        - openIncidentId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        name:
+          type: string
+        url:
+          type: string
+        httpMethod:
+          type: string
+          enum: [GET, HEAD]
+        intervalSeconds:
+          type: integer
+        timeoutMs:
+          type: integer
+        expectedStatus:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        currentStatus:
+          type: string
+          enum: [unknown, up, down]
+          description: unknown until the first check. Show it as "not yet checked".
+        lastCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+        nextCheckAt:
+          type: string
+          format: date-time
+        latestCheck:
+          allOf:
+            - $ref: "#/components/schemas/CheckResult"
+          nullable: true
+        openIncidentId:
+          allOf:
+            - $ref: "#/components/schemas/Id"
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MonitorResponse:
+      type: object
+      required: [monitor]
+      properties:
+        monitor:
+          $ref: "#/components/schemas/Monitor"
+
+    CheckResult:
+      type: object
+      required: [id, monitorId, checkedAt, isUp, httpStatus, responseTimeMs, durationMs, errorMessage]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        monitorId:
+          $ref: "#/components/schemas/Id"
+        checkedAt:
+          type: string
+          format: date-time
+        isUp:
+          type: boolean
+        httpStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+          nullable: true
+          description: null when there was no HTTP response (timeout, DNS, connection, TLS).
+        responseTimeMs:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: null when there was no HTTP response. Never a made-up value.
+        durationMs:
+          type: integer
+          minimum: 0
+          description: Elapsed time of the whole attempt, always present (even with no response). responseTimeMs <= durationMs when both are set.
+        errorMessage:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    IncidentSummary:
+      type: object
+      required:
+        - id
+        - monitorId
+        - monitorName
+        - monitorCurrentStatus
+        - status
+        - severity
+        - startedAt
+        - resolvedAt
+        - cause
+        - createdAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        monitorId:
+          $ref: "#/components/schemas/Id"
+        monitorName:
+          type: string
+        monitorCurrentStatus:
+          type: string
+          enum: [unknown, up, down]
+          description: Health state from checks. The Resolve button is enabled only when this is `up`.
+        status:
+          type: string
+          enum: [open, resolved]
+          description: Workflow state. Changes to resolved only through POST /incidents/{id}/resolve (BR-04).
+        severity:
+          type: string
+          enum: [low, medium, high]
+          description: "[Proposal] Values and assignment rule are open (README Q2). Not in the PR #1 schema yet (README C2)."
+        startedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        cause:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Incident:
+      allOf:
+        - $ref: "#/components/schemas/IncidentSummary"
+        - type: object
+          required: [notes]
+          properties:
+            notes:
+              type: array
+              description: Oldest first. Not in the PR #1 schema yet (README C3).
+              items:
+                $ref: "#/components/schemas/IncidentNote"
+
+    IncidentNote:
+      type: object
+      required: [id, body, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        body:
+          type: string
+          maxLength: 2000
+        createdAt:
+          type: string
+          format: date-time
