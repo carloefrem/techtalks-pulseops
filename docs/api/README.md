@@ -229,7 +229,7 @@ Only `name` and `url` are required. The others use the database defaults. → `2
     "monitorName": "Payments API",
     "monitorCurrentStatus": "up",
     "status": "open",
-    "severity": "high",
+    "severity": "critical",
     "startedAt": "2026-11-20T09:05:00.000Z",
     "resolvedAt": null,
     "cause": "Timed out after 10000 ms",
@@ -243,6 +243,14 @@ Only `name` and `url` are required. The others use the database defaults. → `2
 
 - `status` is the **workflow** state, set by the user: `open` until the owner resolves it (BR-04).
 - `monitorCurrentStatus` is the **health** state, set by checks. The frontend enables the "Resolve" button only when it is `up`.
+- `severity` is `critical` or `major` (PULSE-112, Q2). It is set **once**, from the check that opened the incident, and never changes:
+
+  | First failing check `outcome` | Severity | Why |
+  |---|---|---|
+  | `timeout`, `connection_error`, `dns_error`, `blocked` | `critical` | No HTTP response at all: the endpoint is unreachable |
+  | `http_error` | `major` | The server answered, but with an unexpected status |
+
+  These are the values in the database `CHECK` constraint (`docs/database/schema.sql`), so no migration is needed. The rule is coded once in `backend/src/incidents/severity.ts` for the incident worker (PULSE-94).
 - In list responses, `notes` is left out to keep them small.
 
 `POST /api/incidents/{id}/notes` with `{ "body": "..." }` (1–2000 characters, trimmed) → `201` with `{ "note": IncidentNote }`.
@@ -331,7 +339,7 @@ PR #1 (`feature/PULSE-25-database-design`) is Mirla's and is still open. This PR
 **Status after PR #1 rev 2 (checked Nov 22):**
 
 - **C1 resolved.** The worker never resolves. A successful check only sets `incidents.recovered_at`; `status`/`resolved_at` are set only by the resolve action, and the database rejects resolving without recovery evidence.
-- **C2 partly resolved.** `incidents.severity` exists, but the values differ: the database proposes `critical` / `major`, this contract proposes `low` / `medium` / `high`. One set must be chosen with the rule (Q2).
+- **C2 resolved (PULSE-112).** The contract now uses the database's `critical` / `major` and its rule (section 5.5). The earlier `low` / `medium` / `high` proposal is dropped.
 - **C3 resolved.** `incident_notes` added as suggested.
 - **C4 resolved.** `UNIQUE (user_id, url_normalized)`, using the same normalization as 6.3.
 - **C5 resolved.** Accounts are kept.
@@ -342,7 +350,7 @@ PR #1 (`feature/PULSE-25-database-design`) is Mirla's and is still open. This PR
 | # | PRD need | Current PR #1 schema | What the contract assumes | Suggested schema change |
 |---|---|---|---|---|
 | C1 | **BR-04 / R5:** only the user resolves an incident, after recovery | Worker step 4 sets `resolved_at` automatically on the first successful check | `status` stays `open` until `POST /incidents/{id}/resolve`; the worker never resolves | Remove worker step 4. Resolution sets `resolved_at` only through the API, after checking `monitors.current_status = 'up'` |
-| C2 | **R5:** incidents have a severity | No `severity` column | `severity` field on Incident, values **[Proposal]** `low` / `medium` / `high` | Add `incidents.severity` with a `CHECK`. The rule for choosing it is still open (Q2) |
+| C2 | **R5:** incidents have a severity | No `severity` column | `severity` field on Incident, values ~~**[Proposal]** `low` / `medium` / `high`~~ `critical` / `major` (PULSE-112) | Add `incidents.severity` with a `CHECK`. ~~The rule for choosing it is still open (Q2)~~ Done in PR #1 rev 2; rule in section 5.5 |
 | C3 | **R5:** the owner adds notes | No notes table | `IncidentNote { id, body, createdAt }` | New `incident_notes (id, incident_id FK ON DELETE CASCADE, body VARCHAR(2000), created_at)` with an index on `(incident_id, created_at)` |
 | C4 | **R2:** duplicate URLs rejected | Unique only on `(user_id, name)`; PR #1 open question 4 | `409 DUPLICATE_MONITOR_URL` after normalization (6.3) | Add `UNIQUE (user_id, url)` on the normalized URL |
 | C5 | **R1:** personal accounts | PR #1 open question 1 asks whether accounts are needed | Accounts are required | Close question 1: keep `users` and `user_id` |
@@ -371,7 +379,7 @@ Until PR #3 is merged, `main` tells new teammates to install 17 while the design
 | # | Question | Affects | Owner |
 |---|---|---|---|
 | Q1 | JWT in a cookie or a server session? (PR #2 Q3) | Section 3, `.env.example` | Majd, Mirla |
-| Q2 | Severity values and the rule for setting them (e.g. timeout/no response → `high`, wrong status code → `medium`)? | C2, Incident schema | Carlo, Gaelle, Mirla (PRD) |
+| Q2 | ~~Severity values and the rule for setting them?~~ **Resolved (PULSE-112):** `critical` when there is no HTTP response (`timeout`, `connection_error`, `dns_error`, `blocked`), `major` for an unexpected status (`http_error`). Set once from the first failing check. Uses the existing database values, so no migration | C2, Incident schema, section 5.5 | – |
 | Q3 | If a recovered but unresolved incident's monitor fails again, does it reuse the same incident? (This contract says yes) | C6, worker | Carlo, Majd (PRD) |
 | Q4 | ~~Store the elapsed attempt time separately from response latency?~~ **Resolved (Nov 22):** yes. `durationMs` (always present) is added to CheckResult; the database already stores `duration_ms` | Section 5.4 | – |
 | Q5 | Do we record a failure type (`timeout`, `dns`, `connection`, `http_status`) on each failed check? (Interview finding UN-2) | CheckResult, `check_results` | Gaelle, Mirla |

@@ -923,8 +923,8 @@ components:
           description: Workflow state. Changes to resolved only through POST /incidents/{id}/resolve (BR-04).
         severity:
           type: string
-          enum: [low, medium, high]
-          description: "[Proposal] Values and assignment rule are open (README Q2). Not in the PR #1 schema yet (README C2)."
+          enum: [critical, major]
+          description: "Set once from the first failing check: `critical` = no HTTP response (timeout, connection_error, dns_error, blocked); `major` = unexpected HTTP status (http_error). Matches the database CHECK constraint (README §5.5, Q2 resolved by PULSE-112)."
         startedAt:
           type: string
           format: date-time
