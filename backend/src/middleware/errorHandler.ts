@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from "express";
+import { ApiError } from "../lib/apiError.js";
 
 /**
  * Turns any error into the shared JSON error shape.
@@ -8,6 +9,12 @@ import type { ErrorRequestHandler } from "express";
 export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
   if (res.headersSent) {
     next(err);
+    return;
+  }
+
+  // Errors the API raises on purpose (e.g. 400 UNSAFE_URL) keep their status, code and details.
+  if (err instanceof ApiError) {
+    res.status(err.status).json({ error: { code: err.code, message: err.message, details: err.details } });
     return;
   }
 
