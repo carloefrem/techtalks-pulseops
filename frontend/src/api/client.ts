@@ -12,14 +12,33 @@ export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly details: ApiErrorBody['error']['details']
+  /** From the `Retry-After` header (e.g. on 429 RATE_LIMITED), in seconds. */
+  readonly retryAfterSeconds?: number
 
-  constructor(status: number, code: string, message: string, details: ApiErrorBody['error']['details'] = []) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details: ApiErrorBody['error']['details'] = [],
+    retryAfterSeconds?: number,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.details = details
+    this.retryAfterSeconds = retryAfterSeconds
   }
+}
+
+/** Reads `Retry-After` as delay-seconds or an HTTP date. Returns undefined if missing or unreadable. */
+export function parseRetryAfter(value: string | null, now: number = Date.now()): number | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (/^\d+$/.test(trimmed)) return Number(trimmed)
+  const date = Date.parse(trimmed)
+  if (Number.isNaN(date)) return undefined
+  return Math.max(0, Math.ceil((date - now) / 1000))
 }
 
 /**
@@ -101,7 +120,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (isApiErrorBody(data)) {
     if (response.status === 401 && data.error.code === 'UNAUTHENTICATED') unauthenticatedHandler?.()
-    throw new ApiError(response.status, data.error.code, data.error.message, data.error.details ?? [])
+    throw new ApiError(
+      response.status,
+      data.error.code,
+      data.error.message,
+      data.error.details ?? [],
+      parseRetryAfter(response.headers.get('Retry-After')),
+    )
   }
   throw new ApiError(response.status, 'UNEXPECTED_RESPONSE', `Unexpected response (status ${response.status})`)
 }

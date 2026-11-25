@@ -84,3 +84,21 @@ describe('LoginPage (PULSE-109 / PULSE-110)', () => {
     expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
   })
 })
+
+describe('LoginPage rate limit (PULSE-88)', () => {
+  it('shows how long to wait when the API answers 429 with Retry-After', async () => {
+    fakeApi({
+      'GET /auth/me': unauthenticated(),
+      'POST /auth/login': () =>
+        new Response(JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'Too many requests', details: [] } }), {
+          status: 429,
+          headers: { 'Retry-After': '840' },
+        }),
+    })
+    const { user } = renderApp('/login')
+
+    await fillAndSubmit(user, 'dev@example.com', 'correct-horse')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Too many attempts. Try again in 14 minutes.')
+  })
+})

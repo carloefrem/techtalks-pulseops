@@ -43,7 +43,7 @@ export function toFormError(error: unknown): FormError {
         fields: { email: 'This email is already registered. Try signing in instead.' },
       }
     case 'RATE_LIMITED':
-      return { code: error.code, message: 'Too many attempts. Please wait a moment and try again.', fields: {} }
+      return { code: error.code, message: rateLimitedMessage(error.retryAfterSeconds), fields: {} }
     case 'NETWORK_ERROR':
     case 'TIMEOUT':
       return { code: error.code, message: API_UNAVAILABLE_MESSAGE, fields: {} }
@@ -53,6 +53,18 @@ export function toFormError(error: unknown): FormError {
       }
       return { code: error.code, message: 'Something went wrong. Please try again.', fields: {} }
   }
+}
+
+/** "Too many attempts" with the wait from Retry-After when the API sends it (10 attempts per 15 min, PR #17). */
+export function rateLimitedMessage(retryAfterSeconds?: number): string {
+  if (retryAfterSeconds === undefined || retryAfterSeconds <= 0) {
+    return 'Too many attempts. Please wait a moment and try again.'
+  }
+  if (retryAfterSeconds < 60) {
+    return `Too many attempts. Try again in ${retryAfterSeconds} second${retryAfterSeconds === 1 ? '' : 's'}.`
+  }
+  const minutes = Math.ceil(retryAfterSeconds / 60)
+  return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`
 }
 
 /** Client-side checks that mirror docs/api/README.md section 6.1. The backend stays the source of truth. */
