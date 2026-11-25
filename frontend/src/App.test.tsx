@@ -1,26 +1,19 @@
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
-import App from './App'
+import { screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { fakeApi, jsonResponse, unauthenticated } from './test/fakeApi'
+import { renderApp } from './test/renderApp'
 
 describe('App routes', () => {
   it('renders the starter page at /', async () => {
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response('{"status":"ok"}', { status: 200 })))
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <App />
-      </MemoryRouter>,
-    )
+    fakeApi({ 'GET /health': jsonResponse(200, { status: 'ok' }), 'GET /auth/me': unauthenticated() })
+    renderApp('/')
     expect(screen.getByRole('heading', { name: 'PulseOps' })).toBeInTheDocument()
     expect(await screen.findByText('API: online')).toBeInTheDocument()
   })
 
   it('renders the not-found page for unknown paths', () => {
-    render(
-      <MemoryRouter initialEntries={['/nope']}>
-        <App />
-      </MemoryRouter>,
-    )
+    fakeApi({ 'GET /auth/me': unauthenticated() })
+    renderApp('/nope')
     expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
   })
 })
