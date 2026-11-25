@@ -133,12 +133,12 @@ paths:
     post:
       tags: [Auth]
       summary: Sign out
+      description: Always succeeds, even without a session, so signing out twice is harmless (README section 3).
       operationId: logout
+      security: []
       responses:
         "204":
           description: Signed out. Clears the cookie.
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
 
   /auth/me:
     get:
@@ -484,7 +484,7 @@ components:
       type: apiKey
       in: cookie
       name: pulseops_session
-      description: "[Proposal] httpOnly cookie set by register/login. JWT vs server session is still open (README Q1)."
+      description: "httpOnly cookie set by register/login: a JWT (HS256, 7 days) signed with JWT_SECRET (README section 3, PULSE-87). Cleared by logout."
 
   headers:
     SetSessionCookie:
