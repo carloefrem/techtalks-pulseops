@@ -89,6 +89,7 @@ const IPV4_BLOCKED: Array<[string, number, string]> = [
   ["172.16.0.0", 12, "private"],
   ["192.0.0.0", 24, "IETF protocol assignments"],
   ["192.0.2.0", 24, "documentation"],
+  ["192.88.99.0", 24, "6to4 relay anycast (deprecated)"],
   ["192.168.0.0", 16, "private"],
   ["198.18.0.0", 15, "benchmarking"],
   ["198.51.100.0", 24, "documentation"],
@@ -100,7 +101,10 @@ const IPV4_BLOCKED: Array<[string, number, string]> = [
 const IPV6_BLOCKED: Array<[string, number, string]> = [
   // ::/96 covers ::/128 (unspecified), ::1/128 (loopback) and the deprecated IPv4-compatible form.
   ["::", 96, "unspecified, loopback and IPv4-compatible"],
+  ["64:ff9b:1::", 48, "local-use NAT64 (RFC 8215), can embed a private IPv4"],
   ["100::", 64, "discard"],
+  // Teredo hides an obfuscated IPv4 in its last 32 bits. Nobody monitors an API over Teredo, so block it all.
+  ["2001::", 32, "Teredo"],
   ["2001:db8::", 32, "documentation"],
   ["fc00::", 7, "unique-local"],
   ["fe80::", 10, "link-local"],
