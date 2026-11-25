@@ -75,4 +75,4 @@ Never commit `.env`. It is already in `.gitignore`.
 |---|---|---|
 | GET | `/api/health` | `200 {"status":"ok"}`. Does not touch the database |
 
-Unknown routes return `404 {"error":{"code":"NOT_FOUND",...}}`, and malformed JSON returns `400 INVALID_JSON`.
+Unknown routes return `404 {"error":{"code":"ROUTE_NOT_FOUND",...}}` (`NOT_FOUND` is kept for a missing or not-owned resource), and malformed JSON returns `400 INVALID_JSON`.
