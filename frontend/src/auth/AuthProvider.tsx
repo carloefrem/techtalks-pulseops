@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as authApi from '../api/auth'
-import { ApiError } from '../api/client'
+import { ApiError, setUnauthenticatedHandler } from '../api/client'
 import type { LoginInput, RegisterInput } from '../api/types'
 import { AuthContext, type AuthContextValue, type AuthState } from './AuthContext'
 
@@ -34,6 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadCurrentUser()
     return () => controllerRef.current?.abort()
   }, [loadCurrentUser])
+
+  // Any later 401 UNAUTHENTICATED (e.g. the session expired) signs the user out locally, and
+  // ProtectedRoute then sends them to /login.
+  useEffect(() => {
+    setUnauthenticatedHandler(() => setState({ status: 'unauthenticated', user: null }))
+    return () => setUnauthenticatedHandler(null)
+  }, [])
 
   const refresh = useCallback(() => {
     setState({ status: 'loading', user: null })

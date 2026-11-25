@@ -1,5 +1,7 @@
-import { act, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { apiRequest } from '../api/client'
 import { fakeApi, jsonResponse, testUser, unauthenticated } from '../test/fakeApi'
 import { AuthProvider } from './AuthProvider'
 import { useAuth } from './useAuth'
@@ -64,22 +66,49 @@ describe('AuthProvider (PULSE-108)', () => {
       'POST /auth/login': jsonResponse(200, { user: testUser }),
       'POST /auth/logout': new Response(null, { status: 204 }),
     })
-    let auth: ReturnType<typeof useAuth> | undefined
-    function Capture() {
-      auth = useAuth()
-      return <ShowAuth />
+    function Controls() {
+      const auth = useAuth()
+      return (
+        <>
+          <ShowAuth />
+          <button type="button" onClick={() => void auth.login({ email: 'dev@example.com', password: 'correct-horse' })}>
+            login
+          </button>
+          <button type="button" onClick={() => void auth.logout()}>
+            logout
+          </button>
+        </>
+      )
     }
+    const user = userEvent.setup()
     render(
       <AuthProvider>
-        <Capture />
+        <Controls />
       </AuthProvider>,
     )
     await screen.findByText('unauthenticated')
 
-    await act(() => auth!.login({ email: 'dev@example.com', password: 'correct-horse' }))
-    expect(screen.getByText('authenticated:dev@example.com')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'login' }))
+    expect(await screen.findByText('authenticated:dev@example.com')).toBeInTheDocument()
 
-    await act(() => auth!.logout())
-    expect(screen.getByText('unauthenticated')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'logout' }))
+    expect(await screen.findByText('unauthenticated')).toBeInTheDocument()
+  })
+
+  it('signs out locally when any later request answers 401 UNAUTHENTICATED (expired session)', async () => {
+    fakeApi({
+      'GET /auth/me': jsonResponse(200, { user: testUser }),
+      'GET /monitors': unauthenticated(),
+    })
+    render(
+      <AuthProvider>
+        <ShowAuth />
+      </AuthProvider>,
+    )
+    await screen.findByText('authenticated:dev@example.com')
+
+    await apiRequest('/monitors').catch(() => undefined)
+
+    expect(await screen.findByText('unauthenticated')).toBeInTheDocument()
   })
 })

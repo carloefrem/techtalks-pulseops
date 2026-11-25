@@ -22,6 +22,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Called when any request answers 401 UNAUTHENTICATED (session missing or expired), so the app can
+ * send the user to /login from wherever they are (PULSE-110). AuthProvider registers it.
+ */
+let unauthenticatedHandler: (() => void) | null = null
+
+export function setUnauthenticatedHandler(handler: (() => void) | null): void {
+  unauthenticatedHandler = handler
+}
+
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: unknown
@@ -90,6 +100,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (response.ok) return data as T
 
   if (isApiErrorBody(data)) {
+    if (response.status === 401 && data.error.code === 'UNAUTHENTICATED') unauthenticatedHandler?.()
     throw new ApiError(response.status, data.error.code, data.error.message, data.error.details ?? [])
   }
   throw new ApiError(response.status, 'UNEXPECTED_RESPONSE', `Unexpected response (status ${response.status})`)
