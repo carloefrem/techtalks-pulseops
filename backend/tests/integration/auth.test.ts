@@ -21,6 +21,8 @@ beforeAll(async () => {
   const app = createApp({
     frontendOrigin: FRONTEND,
     auth: { users, session: { jwtSecret: SECRET, secureCookies: false }, bcryptCost: 4 },
+    // These tests make many auth calls from one IP; rate limiting has its own tests (security.test.ts).
+    authRateLimit: { windowMs: 60_000, max: 10_000 },
   });
   server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, () => resolve(s));
