@@ -52,6 +52,7 @@ describe("isBlockedAddress: IPv4 ranges", () => {
     ["172.31.255.255", "private 172.16/12 (end)"],
     ["192.0.0.8", "IETF assignments"],
     ["192.0.2.10", "documentation"],
+    ["192.88.99.1", "6to4 relay anycast (deprecated)"],
     ["192.168.1.1", "private 192.168/16"],
     ["198.18.0.1", "benchmarking"],
     ["198.19.255.255", "benchmarking (end)"],
@@ -87,11 +88,23 @@ describe("isBlockedAddress: IPv6 ranges", () => {
     ["fe80::1%eth0", "link-local with zone id"],
     ["fec0::1", "site-local"],
     ["ff02::1", "multicast"],
+    ["2001:0:4136:e378:8000:63bf:3fff:fdd2", "Teredo (Carlo's PR #11 review)"],
+    ["2001::1", "Teredo"],
+    ["64:ff9b:1::a00:1", "local-use NAT64 with private 10.0.0.1"],
+    ["64:ff9b:1:ffff::1", "local-use NAT64"],
   ])("blocks %s (%s)", (address) => {
     expect(isBlockedAddress(address)).toBe(true);
   });
 
-  it.each(["2606:4700:4700::1111", "2001:4860:4860::8888", "::ffff:8.8.8.8", "64:ff9b::808:808", "2002:808:808::1"])(
+  it.each([
+    "2606:4700:4700::1111",
+    "2001:4860:4860::8888",
+    "2001:1::1",
+    "::ffff:8.8.8.8",
+    "64:ff9b::808:808",
+    "64:ff9b:2::1",
+    "2002:808:808::1",
+  ])(
     "allows public address %s",
     (address) => {
       expect(isBlockedAddress(address)).toBe(false);

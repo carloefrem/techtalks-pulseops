@@ -251,8 +251,8 @@ The same policy runs **at create/edit** (returns `400` with a clear message, and
 
 | Family | Blocked ranges |
 |---|---|
-| IPv4 | `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10` (CGNAT), `127.0.0.0/8`, `169.254.0.0/16` (link-local, incl. cloud metadata `169.254.169.254`), `172.16.0.0/12`, `192.0.0.0/24`, `192.0.2.0/24`, `192.168.0.0/16`, `198.18.0.0/15`, `198.51.100.0/24`, `203.0.113.0/24`, `224.0.0.0/4` (multicast), `240.0.0.0/4` (reserved, incl. `255.255.255.255`) |
-| IPv6 | `::/128`, `::1/128` (loopback), `fc00::/7` (unique-local), `fe80::/10` (link-local), `ff00::/8` (multicast), `2001:db8::/32` (documentation), `100::/64` (discard) |
+| IPv4 | `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10` (CGNAT), `127.0.0.0/8`, `169.254.0.0/16` (link-local, incl. cloud metadata `169.254.169.254`), `172.16.0.0/12`, `192.0.0.0/24`, `192.0.2.0/24`, `192.88.99.0/24` (deprecated 6to4 relay), `192.168.0.0/16`, `198.18.0.0/15`, `198.51.100.0/24`, `203.0.113.0/24`, `224.0.0.0/4` (multicast), `240.0.0.0/4` (reserved, incl. `255.255.255.255`) |
+| IPv6 | `::/128`, `::1/128` (loopback), `fc00::/7` (unique-local), `fe80::/10` (link-local), `ff00::/8` (multicast), `2001:db8::/32` (documentation), `100::/64` (discard), `2001::/32` (Teredo, hides an obfuscated IPv4), `64:ff9b:1::/48` (local-use NAT64, RFC 8215) |
 | IPv6 that carries IPv4 | `::ffff:0:0/96` (IPv4-mapped), `64:ff9b::/96` (NAT64) and `2002::/16` (6to4): **extract the embedded IPv4 address and apply the IPv4 rules** |
 
 The implementation should use a maintained IP-parsing library (for example `ipaddr.js`) rather than string matching. The exact library is chosen in the implementation PR.
