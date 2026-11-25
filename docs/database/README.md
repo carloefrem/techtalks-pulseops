@@ -148,7 +148,7 @@ Conventions:
 | id | BIGINT identity | no | PK |
 | monitor_id | BIGINT | no | FK → monitors, cascade |
 | status | VARCHAR(8) | no | `open` (default) or `resolved`. **At most one `open` per monitor** (BR-03) |
-| severity | VARCHAR(8) | no | `critical` or `major`. **PROPOSAL** (section 3.2) |
+| severity | VARCHAR(8) | no | `critical` or `major`. Decided in PULSE-112 (section 3.2) |
 | started_at | TIMESTAMPTZ | no | `checked_at` of the first failing check |
 | first_check_id | BIGINT | yes | Must be a check of **the same monitor** (composite FK). NULL only if that check was deleted |
 | cause | VARCHAR(500) | yes | Copied from the first failing check |
@@ -191,7 +191,7 @@ Only the incident's owner can add notes (BR-01), so no separate author column is
 - **Recovery is not resolution:** a successful check only sets `recovered_at`. It never changes `status`.
 - **Resolution:** the API's resolve endpoint checks ownership, then sets `status = 'resolved', resolved_at = now()`. The database rejects it unless `recovered_at` is set (`incidents_resolve_needs_recovery`). If the endpoint failed again after recovering, `recovered_at` is NULL again, so resolving is rejected ("still failing", PRD R5).
 - **Re-failure before resolution (PROPOSAL, PRD decision owned by Carlo with Majd):** the same open incident continues and `recovered_at` is cleared. A failure after resolution opens a new incident.
-- **Severity (PROPOSAL, PRD decision owned by Carlo with Gaelle and Mirla):** set once, from the first failing check:
+- **Severity (decided in PULSE-112; the API contract uses the same values):** set once, from the first failing check:
   - `critical` when there was no HTTP response (`timeout`, `connection_error`, `dns_error`, `blocked`)
   - `major` when the server answered with an unexpected status (`http_error`)
 
@@ -317,7 +317,7 @@ These are the PRD's *Decisions needed before approval*, plus one schema-level ch
 | Decision | Current schema choice | Owner (from the PRD) |
 |---|---|---|
 | Response time when there is no HTTP response | Stores both `duration_ms` and nullable `response_time_ms` | Carlo with Majd and Mirla |
-| Severity values and rule | `critical` / `major`, set from the first failing check | Carlo with Gaelle and Mirla |
+| Severity values and rule | **Decided (PULSE-112):** `critical` / `major`, set from the first failing check | – |
 | URL equivalence | Rules in section 3.3 | Gaelle with Mirla |
 | Default check interval | 300 s (allowed 60–86400) | Carlo with Majd and Mirla |
 | History retention | None in the MVP; cleanup only if agreed | Carlo with Majd and Mirla |

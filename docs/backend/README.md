@@ -223,7 +223,7 @@ npm run dev               # then open http://localhost:3001/api/health → {"sta
 | R4 | The dashboard reads `current_status` (`unknown` = "not yet checked"), the latest results and history |
 | R5, BR-03 | A failing applied check opens **one** incident (database partial unique index). Repeated failures don't create duplicates |
 | R5, BR-04 | **A successful check never closes an incident.** It only records `recovered_at`. `POST …/incidents/:id/resolve` is owner-only and returns `409` while there is no recovery evidence; the database enforces the same rule |
-| R5 | Notes: an owner-only create and list. Severity is shown as stored (the rule is a PROPOSAL in the database design) |
+| R5 | Notes: an owner-only create and list. Severity is shown as stored: `critical` / `major`, set by `incidents/severity.ts` (PULSE-112) |
 | BR-05 | Nothing deletes history in the MVP |
 
 Endpoint health (`monitors.current_status`) and incident state (`incidents.status`) are separate, and only the newest result updates them (database design, section 4).
@@ -290,7 +290,7 @@ The implementation should use a maintained IP-parsing library (for example `ipad
 | Authentication method (session cookie vs JWT in an httpOnly cookie) | Open (TDD) |
 | Worker process model and concurrency (inside the API process, or separate) | Open (PULSE-24, Majd). The claim and completion procedure works either way |
 | Response-time semantics when there is no HTTP response | Open (PRD; Carlo with Majd and Mirla) |
-| Severity values and rule | Open (PRD; Carlo with Gaelle and Mirla) |
+| Severity values and rule | **Resolved (PULSE-112):** `critical` (no HTTP response) / `major` (unexpected status), set from the first failing check. See `docs/api/README.md` §5.5 |
 | URL equivalence (duplicate rules) | Proposal in the database design, section 3.3 (Gaelle with Mirla) |
 | Check interval default and history retention | Open (PRD; Carlo with Majd and Mirla) |
 | Allowed ports for monitored URLs (any port vs only 80/443) | Open, a new question from this plan |

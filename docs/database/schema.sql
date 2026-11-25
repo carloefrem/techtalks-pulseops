@@ -101,7 +101,7 @@ CREATE TABLE incidents (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     monitor_id      BIGINT       NOT NULL REFERENCES monitors (id) ON DELETE CASCADE,
     status          VARCHAR(8)   NOT NULL DEFAULT 'open',   -- 'open' | 'resolved'
-    severity        VARCHAR(8)   NOT NULL,                  -- PROPOSAL: 'critical' | 'major'
+    severity        VARCHAR(8)   NOT NULL,                  -- 'critical' | 'major' (PULSE-112)
     started_at      TIMESTAMPTZ  NOT NULL,                  -- checked_at of the first failing check
     first_check_id  BIGINT,                                 -- that check; NULL only if history was purged
     cause           VARCHAR(500),                           -- copied from the first failing check
