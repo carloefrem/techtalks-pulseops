@@ -1,6 +1,6 @@
 # PulseOps frontend: structure and setup plan (PULSE-64)
 
-**Status:** Plan, waiting for Mirla's review. No frontend code exists yet.
+**Status:** Plan reviewed by Mirla and merged (PR #6). Implemented in `frontend/` by PULSE-65 / PULSE-72; see [frontend/README.md](../../frontend/README.md).
 **Author:** Gaelle · **Reviewer:** Mirla
 **Parent:** PULSE-27 (S1-08 Prepare React frontend foundation)
 **Follows:** the stack in the root [README](../../README.md) (Node 24.22.3, React 19, TypeScript, Vite, Tailwind CSS 4, React Router, Recharts, Lucide React, Vitest, React Testing Library, jsdom), the backend plan in [PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2) (`docs/backend/`) and the API contract in [PR #5](https://github.com/carloefrem/techtalks-pulseops/pull/5) (`docs/api/`, PULSE-26). Until those PRs are merged, `docs/api/` and `docs/backend/` only exist on their PR branches, so this plan links the PRs.
@@ -169,7 +169,7 @@ The first page proves the frontend runs and can reach the backend.
 | Backend state | What `GET /api/health` returns | What the page shows |
 |---|---|---|
 | Running | `200 { "status": "ok" }` | "API: online" with a green badge |
-| Not running / proxy can't connect | A network error, or **any 5xx without our JSON error shape** (the exact status the Vite proxy returns can vary; Mirla confirms it in PULSE-66) | "API: unavailable" with a red badge, the base URL being used, and a **Retry** button |
+| Not running / proxy can't connect | A network error, or **any 5xx without our JSON error shape** (the Vite 8 dev proxy answers `502` when the backend is down, checked in PULSE-72) | "API: unavailable" with a red badge, the base URL being used, and a **Retry** button |
 | Something else | Any other status or body | "API: unexpected response (status N)" |
 | Request in progress | – | "Checking API…" |
 
@@ -217,5 +217,5 @@ If PowerShell blocks npm scripts, use `npm.cmd` instead, as the root README says
 - [x] Planned folders, dependencies and scripts are documented (sections 1, 2, 4)
 - [x] API base URL configuration is documented with placeholders only, no secrets (section 3)
 - [x] Implementation authorization recorded (section 0)
-- [ ] Mirla reviews this plan; the PR is linked in Jira
+- [x] Mirla reviews this plan; the PR is linked in Jira (PR #6, merged)
 - [ ] After authorization: a clean checkout installs from the lockfile and starts (PULSE-65), and Mirla reproduces it
