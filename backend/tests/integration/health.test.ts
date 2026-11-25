@@ -44,10 +44,23 @@ describe("GET /api/health", () => {
 });
 
 describe("errors use the shared JSON shape", () => {
-  it("unknown route → 404 NOT_FOUND", async () => {
+  it("unknown route → 404 ROUTE_NOT_FOUND (docs/api/README.md §2)", async () => {
     const res = await fetch(`${baseUrl}/api/does-not-exist`);
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: { code: "NOT_FOUND", message: "Not found", details: [] } });
+    expect(res.headers.get("content-type")).toMatch(/application\/json/);
+    expect(await res.json()).toEqual({ error: { code: "ROUTE_NOT_FOUND", message: "Route not found", details: [] } });
+  });
+
+  it("unknown method on a known path → 404 ROUTE_NOT_FOUND, not NOT_FOUND", async () => {
+    const res = await fetch(`${baseUrl}/api/health`, { method: "DELETE" });
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.code).toBe("ROUTE_NOT_FOUND");
+  });
+
+  it("path outside /api → 404 ROUTE_NOT_FOUND as JSON", async () => {
+    const res = await fetch(`${baseUrl}/nope`);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.code).toBe("ROUTE_NOT_FOUND");
   });
 
   it("malformed JSON body → 400 INVALID_JSON", async () => {
