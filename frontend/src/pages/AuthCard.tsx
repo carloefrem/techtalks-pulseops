@@ -1,5 +1,6 @@
 import { Activity } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Card } from '../components/ui/Card'
 
 /** Shared frame for /login and /register. */
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle: ReactNode; children: ReactNode }) {
@@ -11,7 +12,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
       </div>
       <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
       <p className="mt-2 text-sm text-slate-600">{subtitle}</p>
-      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">{children}</div>
+      <Card className="mt-6">{children}</Card>
     </main>
   )
 }

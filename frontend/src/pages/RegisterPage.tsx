@@ -14,6 +14,7 @@ import { redirectTarget } from '../auth/redirect'
 import { useAuth } from '../auth/useAuth'
 import { FormAlert } from '../components/forms/FormAlert'
 import { TextField } from '../components/forms/TextField'
+import { Button } from '../components/ui/Button'
 import { AuthCard } from './AuthCard'
 
 /** /register (PULSE-109): POST /api/auth/register signs the user in, then /dashboard. */
@@ -109,13 +110,9 @@ export function RegisterPage() {
           error={fieldErrors.password}
           hint={`${PASSWORD_MIN} to ${PASSWORD_MAX} characters.`}
         />
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={submitting} fullWidth>
           {submitting ? 'Creating account…' : 'Create account'}
-        </button>
+        </Button>
       </form>
     </AuthCard>
   )

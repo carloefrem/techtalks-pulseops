@@ -46,18 +46,23 @@ Run `npm test` and `npm run build` before opening a PR.
 ```text
 src/
 ├── main.tsx              Entry: <App /> inside BrowserRouter
-├── App.tsx               Routes: public (/, /login, /register) and protected (/dashboard)
+├── App.tsx               Routes: public (/, /login, /register) and protected (/dashboard, /monitors[/:id], /incidents[/:id])
 ├── config/env.ts         Reads and checks VITE_API_BASE_URL
 ├── api/client.ts         The only place that calls fetch (timeout, credentials, ApiError, 401 handler)
 ├── api/health.ts         GET /api/health → online / unavailable / unexpected
 ├── api/auth.ts           register, login, logout, getCurrentUser (/api/auth/*)
 ├── auth/                 AuthProvider + useAuth, ProtectedRoute, error-code messages
-├── components/           ApiStatus, StatusBadge, AppLayout (header + logout), forms/
-├── pages/                Home, Login, Register, Dashboard (placeholder), NotFound
+├── components/           AppLayout (app shell: header, nav, logout), navigation, ApiStatus, StatusBadge, forms/
+├── components/ui/        Base components: Button (+ buttonClasses for links), Card, PageTitle
+├── pages/                Home, Login, Register, Dashboard, Monitors, Incidents (placeholders until Sprint 3/4), NotFound
 └── test/                 jest-dom setup, fakeApi (fake backend), renderApp
 ```
 
 Tests sit next to the file they test (`ApiStatus.test.tsx` beside `ApiStatus.tsx`).
+
+## App shell (PULSE-101)
+
+Signed-in pages render inside `AppLayout`: a header with the app name, the main navigation (Dashboard, Monitors, Incidents) and the logout button, then the page in `<main>`. New screens go in `App.tsx` inside the `ProtectedRoute` + `AppLayout` routes and start with `<PageTitle>`. Use `Button`, `Card` and `buttonClasses()` (for links that look like buttons) instead of repeating Tailwind classes. Unknown paths show `NotFoundPage`.
 
 ## Sign-in (PULSE-88)
 
