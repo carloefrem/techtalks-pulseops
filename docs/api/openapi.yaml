@@ -601,7 +601,7 @@ components:
               message: Not found
               details: []
     RateLimited:
-      description: "[Proposal] Too many requests (RATE_LIMITED)"
+      description: "Too many requests (RATE_LIMITED, PULSE-111): login + register share 10 per 15 min per IP; manual checks 6 per minute per user."
       headers:
         Retry-After:
           description: Seconds to wait

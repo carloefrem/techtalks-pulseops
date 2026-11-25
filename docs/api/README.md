@@ -29,7 +29,8 @@ These follow `docs/backend/README.md` section 5 (PR #2), which says they must be
 | IDs | Sent as **strings**, e.g. `"id": "42"`. The database uses `BIGINT`, and JavaScript numbers lose precision above 2^53, so the API never sends IDs as numbers |
 | Timestamps | ISO 8601 strings in UTC, e.g. `"2026-11-20T09:15:00.000Z"` |
 | Empty values | A field with no value is sent as `null`, never left out |
-| CORS | Only `FRONTEND_ORIGIN` is allowed, **with credentials** (needed for the session cookie, section 3) |
+| CORS | Only `FRONTEND_ORIGIN` is allowed, **with credentials** (needed for the session cookie, section 3). Other origins get no `Access-Control-*` headers at all |
+| Security headers | Sent on every response (`helmet`, PULSE-111), including a strict `Content-Security-Policy: default-src 'none'` because the API serves only JSON |
 | Unknown fields | Rejected with `400 VALIDATION_ERROR` (Zod `.strict()`), so typos don't fail silently |
 
 ### Error format
@@ -64,7 +65,9 @@ Every error uses the single shape from PR #2:
 | 409 | `DUPLICATE_MONITOR_URL` | The user already monitors an equivalent URL (section 6.3) |
 | 409 | `MONITOR_STILL_DOWN` | Resolving an incident while its monitor isn't `up` (BR-04) |
 | 409 | `INCIDENT_ALREADY_RESOLVED` | Resolving an incident that is already resolved |
-| 429 | `RATE_LIMITED` | **[Proposal]** Too many login attempts or manual checks. Includes a `Retry-After` header |
+| 400 | `INVALID_JSON` | The request body is not valid JSON (sent by the error handler before validation runs) |
+| 413 | `PAYLOAD_TOO_LARGE` | JSON body over the `100kb` limit |
+| 429 | `RATE_LIMITED` | Too many requests (PULSE-111). Login and register share **10 per 15 minutes per client IP**; manual checks allow **6 per minute per user**. Includes a `Retry-After` header (seconds) |
 | 500 | `INTERNAL_ERROR` | Unexpected error. Generic message; details are only logged on the server |
 
 ## 3. Authentication
@@ -378,7 +381,7 @@ Until PR #3 is merged, `main` tells new teammates to install 17 while the design
 | Q5 | Do we record a failure type (`timeout`, `dns`, `connection`, `http_status`) on each failed check? (Interview finding UN-2) | CheckResult, `check_results` | Gaelle, Mirla |
 | Q6 | Are notes allowed on resolved incidents? (This contract allows it) | Section 5.5 | Team |
 | Q7 | Is the duplicate-URL normalization in 6.3 acceptable? | C4 | Gaelle, Mirla |
-| Q8 | Rate limits for login and manual checks: values? Carlo's review (Nov 21) recommends implementing the manual-check `429` in the MVP, since each manual check is an outbound request that can block for up to 30 s | `429 RATE_LIMITED`, `POST /monitors/{id}/checks` | Majd |
+| Q8 | ~~Rate limits for login and manual checks: values?~~ **Resolved (PULSE-111):** login + register share 10 per 15 min per IP; manual checks 6 per minute per user (`manualCheckRateLimiter()`, mounted by PULSE-92 after `requireAuth`) | `429 RATE_LIMITED`, `POST /monitors/{id}/checks` | – |
 | Q9 | Dashboard refresh: polling every 30 s for the MVP, or something else? | Frontend (PULSE-27) | Gaelle, Majd |
 | Q10 | Deleting a monitor cascades to its checks, incidents and notes (section 5.3), but BR-05 says history stays visible after resolution. Keep the cascade for the MVP and note the limitation, or soft-delete/archive monitors? (Carlo's review: cascade is fine for the MVP if noted) | Section 5.3, C-table, PR #1 | Team |
 | Q11 | A paused monitor (`isActive=false`) is never checked again, so its open incident can never reach `currentStatus = up` and can't be resolved. Allow resolving when the monitor is paused, or require a manual check first? The database currently requires `recovered_at` to resolve (PR #1 rev 2), so either choice also changes PR #1 | Sections 5.5, 6.2, BR-04 | Carlo, Gaelle |
