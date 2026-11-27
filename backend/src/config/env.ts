@@ -10,6 +10,8 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   FRONTEND_ORIGIN: z.url({ protocol: /^https?$/ }),
   DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "must start with postgresql://"),
+  // Signs the session JWT (PULSE-87). Long and random; different per environment; never committed.
+  JWT_SECRET: z.string().min(32, "must be at least 32 characters (generate one, see backend/README.md)"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -69,13 +69,14 @@ Every error uses the single shape from PR #2:
 
 ## 3. Authentication
 
-**[Proposal]** PR #2 open question 3 asks whether to use a JWT in an httpOnly cookie or a server session. This contract works with either, because the frontend only ever sees a cookie:
+**Decided (PULSE-87, Nov 25):** the session is a **stateless JWT** (HS256, valid 7 days) stored in an httpOnly cookie. This resolves Q1 (PR #2 open question 3). The frontend never sees the token, only the cookie:
 
 - On register or login, the server sets a cookie named `pulseops_session` with `HttpOnly`, `SameSite=Lax`, `Path=/api`, and `Secure` in production.
 - The frontend sends requests with `credentials: "include"`. It never reads or stores a token in JavaScript or `localStorage`.
-- Every route except `GET /api/health`, `POST /api/auth/register` and `POST /api/auth/login` requires the cookie. Without it the response is `401 UNAUTHENTICATED`, and the frontend redirects to the login page (PRD section 3, "Unauthorized action").
-
-The backend team picks JWT or session in the TDD. If it's JWT, `JWT_SECRET` is added to `.env.example` as PR #2 already plans.
+- Every route except `GET /api/health`, `POST /api/auth/register`, `POST /api/auth/login` and `POST /api/auth/logout` requires the cookie. Without a valid one the response is `401 UNAUTHENTICATED`, and the frontend redirects to the login page (PRD section 3, "Unauthorized action").
+- `POST /api/auth/logout` always answers `204` and clears the cookie, even without a session, so signing out twice is harmless.
+- If the account behind a valid token no longer exists, `GET /api/auth/me` answers `401 UNAUTHENTICATED` and clears the cookie.
+- The token is signed with `JWT_SECRET` (at least 32 random characters, in `backend/.env`; see `backend/.env.example`). Changing the secret signs everyone out. There is no server-side session table, so logout clears the cookie but can't revoke a copied token before it expires; acceptable for the MVP.
 
 ## 4. Ownership (BR-01)
 

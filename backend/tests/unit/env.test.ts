@@ -4,6 +4,7 @@ import { loadEnv } from "../../src/config/env.js";
 const valid = {
   FRONTEND_ORIGIN: "http://localhost:5173",
   DATABASE_URL: "postgresql://user:pass@localhost:5432/pulseops_dev",
+  JWT_SECRET: "test-secret-that-is-at-least-32-characters-long",
 };
 
 describe("loadEnv", () => {
@@ -23,6 +24,12 @@ describe("loadEnv", () => {
 
   it("rejects a DATABASE_URL that is not PostgreSQL", () => {
     expect(() => loadEnv({ ...valid, DATABASE_URL: "mysql://x" })).toThrow(/DATABASE_URL/);
+  });
+
+  it("fails clearly when JWT_SECRET is missing or too short", () => {
+    const { JWT_SECRET: _omit, ...withoutSecret } = valid;
+    expect(() => loadEnv(withoutSecret)).toThrow(/JWT_SECRET/);
+    expect(() => loadEnv({ ...valid, JWT_SECRET: "short" })).toThrow(/JWT_SECRET/);
   });
 
   it("rejects an invalid PORT", () => {
