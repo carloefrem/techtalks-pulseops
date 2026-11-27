@@ -178,11 +178,14 @@ techtalks-pulseops/
 |---|---|---|---|
 | `README.md` | Exists | PULSE-22 / PULSE-50 | Overview and setup guide |
 | `.gitignore` | Exists | PULSE-22 | Excludes `.env*` (except `.env.example`), `node_modules/` and `dist/` |
-| `docs/database/` | In review ([PR #1](https://github.com/carloefrem/techtalks-pulseops/pull/1)) | PULSE-25 | Database design: ERD, tables, indexes, `schema.sql`, `verify.sql` |
-| `docs/backend/` | In review ([PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2)) | PULSE-67 | Backend folder structure, scripts and env plan |
-| `frontend/` | Planned | PULSE-27 | Created by the frontend setup (section 8) |
-| `backend/` | Planned | PULSE-28 | Created by the backend setup (section 9); implementation authorized 21 Nov 2026 |
-| `.github/` | Planned | PULSE-22 | PR template and CI, if adopted |
+| `docs/database/` | Exists ([README](docs/database/README.md), merged in #1) | PULSE-25 | Database design: ERD, tables, indexes, `schema.sql`, `verify.sql` |
+| `docs/backend/` | Exists ([README](docs/backend/README.md), merged in #2) | PULSE-67 | Backend folder structure, scripts and env plan |
+| `docs/api/` | Exists ([README](docs/api/README.md), merged in #5) | PULSE-26 | REST API contract and `openapi.yaml` |
+| `docs/frontend/` | Exists ([README](docs/frontend/README.md), merged in #6) | PULSE-64 | Frontend structure and setup plan |
+| `docs/workflow.md` | Exists (this PR, #4) | PULSE-22 / PULSE-51 | Branching, review and merge rules |
+| `backend/` | Exists (merged in #7, #8) | PULSE-28 | Express 5 API, Prisma, first migration; see [backend/README.md](backend/README.md) |
+| `frontend/` | In review ([PR #9](https://github.com/carloefrem/techtalks-pulseops/pull/9)) | PULSE-27 | React + Vite starter (section 8) |
+| `.github/` | Exists (PR template, this PR #4) | PULSE-22 | CI workflow planned in PULSE-102 |
 | `.nvmrc` | Planned | PULSE-22 | See below |
 
 Update the **Status** column in the same PR that adds or removes a folder.
@@ -288,21 +291,13 @@ Never commit real .env files or credentials.
 
 ## 13. GitHub Workflow
 
-1. Pull the latest changes before starting work.
-2. Create a feature branch for your Jira issue.
-3. Write and test your changes.
-4. Commit with a meaningful message.
-5. Push the branch.
-6. Open a Pull Request.
-7. Request review from another teammate.
-8. Merge after approval and passing checks.
-9. Update Jira with the Pull Request link.
+The full rules are in **[docs/workflow.md](docs/workflow.md)**. In short:
 
-Example branch:
-
-```text
-feature/PULSE-12-monitor-list
-```
+1. Branch from the latest `main`: `<type>/PULSE-<id>-<short-name>` (types: `feature`, `fix`, `docs`, `test`, `chore`).
+2. Commit as `type(scope): summary (PULSE-<id>)`.
+3. Open a PR with the template, link the Jira ticket, and request the reviewer named in Jira.
+4. `main` is protected: 1 approval, all conversations resolved; a new commit dismisses earlier approvals.
+5. The author merges with **Squash and merge** and deletes the branch, then moves the Jira ticket to Done.
 
 Everyone must contribute to multiple areas of the application, including frontend, backend, database, testing, and documentation.
 
@@ -345,10 +340,11 @@ GitHub is the source of truth for code, reviews, and versioned technical configu
 
 | Document | Jira | Status |
 |---|---|---|
-| Database design | PULSE-25 | Draft in review, changes requested; not approved. [PR #1](https://github.com/carloefrem/techtalks-pulseops/pull/1) |
-| Backend structure and configuration plan | PULSE-67 | Draft in review, changes requested; not approved. [PR #2](https://github.com/carloefrem/techtalks-pulseops/pull/2) |
-| [PRD and MVP scope](https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128) | PULSE-19 | Notion, v1.1 Draft; team review pending |
-| [System architecture (TDD)](https://www.notion.so/41b4cd9e492d8039a742d90d649d93b9) | PULSE-24 | Notion, template only; not yet completed |
-| REST API contract | PULSE-26 | To be added |
-
-The database and backend documents link to their pull requests while those are open. Once a PR is merged, change its link to the file on `main` (`docs/database/README.md`, `docs/backend/README.md`).
+| [Database design](docs/database/README.md) | PULSE-25 | Merged (#1) |
+| [Backend structure and configuration plan](docs/backend/README.md) | PULSE-67 | Merged (#2) |
+| [REST API contract](docs/api/README.md) and [OpenAPI spec](docs/api/openapi.yaml) | PULSE-26 | Merged (#5); updated by feature PRs as decisions are made |
+| [Frontend structure and setup plan](docs/frontend/README.md) | PULSE-64 | Merged (#6) |
+| [Repository workflow](docs/workflow.md) | PULSE-22 | This PR (#4) |
+| [PRD and MVP scope](https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128) | PULSE-19 | Notion, v1.1, accepted as the working guide (Nov 21) |
+| [System architecture (TDD)](https://www.notion.so/41b4cd9e492d8039a742d90d649d93b9) | PULSE-24 | Notion, architecture sections written; review pending (PULSE-55) |
+| [Sprint 01 report](https://app.notion.com/p/4204cd9e492d80cc9d44cac2c7e7c9e4) | PULSE-32 | Notion, submitted to TechTalks on Nov 22 |
