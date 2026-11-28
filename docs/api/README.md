@@ -1,12 +1,12 @@
 # PulseOps REST API contract (PULSE-26)
 
-**Status:** Draft, waiting for Majd's review. No API code exists yet.
+**Status:** Merged (PR #5, Nov 23). Implemented so far on `main`: `GET /api/health` (PR #7), `ROUTE_NOT_FOUND` for unknown routes (PR #13) and the URL safety rules in §6.4 (PR #11). Auth (§3, §5.2) is in review in PR #16. Feature PRs update this contract as decisions are made.
 **Author:** Gaelle · **Reviewer:** Majd
 **Covers:** PULSE-60 (routes and payloads), PULSE-61 (validation, errors, access rules), PULSE-62 (alignment with the schema and user journey)
 **Machine-readable version:** [`openapi.yaml`](openapi.yaml) (OpenAPI 3.0.3). Import it into Bruno with *Collection → Import → OpenAPI V3*.
-**Follows:** the [PRD v1.1](https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128) (R1–R5, BR-01–BR-05, section 6 test), the backend conventions in PR #2 (`docs/backend/README.md`, section 5) and the database design in PR #1 (`docs/database/`).
+**Follows:** the [PRD v1.1](https://www.notion.so/41a4cd9e492d80429fe9fca7d4197128) (R1–R5, BR-01–BR-05, section 6 test), the backend conventions (`docs/backend/README.md`, section 5, merged in PR #2) and the database design (`docs/database/`, merged in PR #1).
 
-> PR #1 and PR #2 are still open, and the PRD is still a draft. This contract follows the **PRD** wherever the PRD and the current database design disagree.
+> PR #1 and PR #2 were merged on Nov 23, and PRD v1.1 is the accepted working guide (Nov 21). This contract follows the **PRD** wherever the PRD and the database design disagree.
 > Every disagreement is listed in [section 8](#8-conflicts-with-the-database-design-pr-1). Items marked **[Proposal]** need a team decision before implementation.
 
 ---
@@ -326,7 +326,7 @@ This walks through PRD section 3 and the section 6 acceptance test.
 
 ## 8. Conflicts with the database design (PR #1)
 
-PR #1 (`feature/PULSE-25-database-design`) is Mirla's and is still open. This PR doesn't change it. The table below was written against `00eff8e`; the **Status** list underneath records what PR #1 revision 2 (`816db53`, `d82d4a8`) changed.
+PR #1 (`feature/PULSE-25-database-design`) is Mirla's and was merged on Nov 23. This contract doesn't change it. The table below was written against `00eff8e`; the **Status** list underneath records what PR #1 revision 2 (`816db53`, `d82d4a8`) changed.
 
 **Status after PR #1 rev 2 (checked Nov 22):**
 
